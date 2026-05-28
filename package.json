@@ -1,0 +1,32 @@
+{
+  "name": "cs-self-guide",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "seed": "tsx --env-file=.env scripts/seed.ts",
+    "import:excel": "tsx scripts/import-excel.ts file/chat.xlsx",
+    "import:excel:dry": "tsx scripts/import-excel.ts file/chat.xlsx --dry-run"
+  },
+  "dependencies": {
+    "lucide-react": "^1.16.0",
+    "mongoose": "^9.6.2",
+    "next": "16.2.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "read-excel-file": "^9.0.10",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tsx": "^4.22.3",
+    "typescript": "^5"
+  }
+}
