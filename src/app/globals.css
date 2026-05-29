@@ -2460,3 +2460,277 @@ body {
   border-color: var(--primary);
   color: #ffffff;
 }
+
+/* admin header 사용 가이드 링크 */
+.admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 어드민 사용 가이드 페이지 */
+.guide-page {
+  display: grid;
+  gap: 18px;
+}
+
+.guide-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.guide-hero {
+  border: 1px solid #d9e7f2;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 247, 255, 0.96)),
+    #ffffff;
+  padding: 22px;
+}
+
+.guide-hero h1 {
+  font-size: clamp(24px, 4vw, 34px);
+  margin: 4px 0 8px;
+}
+
+.guide-hero p {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.guide-block {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 18px;
+  box-shadow: 0 10px 26px rgba(23, 32, 42, 0.05);
+}
+
+.guide-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.guide-block-head svg {
+  color: var(--primary);
+}
+
+.guide-block-head h2 {
+  font-size: 18px;
+}
+
+.guide-lead {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+/* 고객 이용 흐름 스텝 */
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  list-style: none;
+}
+
+.flow-step {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbfe;
+  padding: 14px;
+}
+
+.flow-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.flow-step strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.flow-step p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.flow-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f1faf4;
+  color: #1a7a4f;
+  font-size: 13px;
+}
+
+/* 어드민 기능 카드 */
+.guide-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.guide-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.guide-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.guide-card-head svg {
+  color: var(--primary);
+}
+
+.guide-card-head h3 {
+  font-size: 15px;
+}
+
+.guide-card ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 16px;
+}
+
+.guide-card li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #2c3a47;
+}
+
+/* 클레임 파이프라인 */
+.pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.pipe-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 180px;
+}
+
+.pipe-step {
+  flex: 1;
+  display: grid;
+  gap: 3px;
+  border: 1px solid #cfe1f4;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+  min-height: 100%;
+}
+
+.pipe-step strong {
+  font-size: 14px;
+}
+
+.pipe-step span {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.pipe-arrow {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+/* 운영 루프 */
+.ops-loop {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.ops-loop li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #2c3a47;
+}
+
+.ops-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eef4f9;
+  color: var(--primary-dark);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.guide-metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.guide-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f8fbfe;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.guide-metric svg {
+  color: var(--primary);
+}
