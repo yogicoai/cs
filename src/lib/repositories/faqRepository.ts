@@ -27,7 +27,19 @@ function toFaqItem(document: {
   };
 }
 
+// 공개 FAQ는 자주 바뀌지 않으므로 짧게 캐시해 AI 검색마다 DB를 다시 치지 않게 한다.
+let publishedCache: { data: FaqItem[]; at: number } | null = null;
+const PUBLISHED_TTL_MS = 60_000;
+
+export function invalidatePublishedFaqs() {
+  publishedCache = null;
+}
+
 export async function getPublishedFaqs(): Promise<FaqItem[]> {
+  if (publishedCache && Date.now() - publishedCache.at < PUBLISHED_TTL_MS) {
+    return publishedCache.data;
+  }
+
   try {
     await connectDB();
     const docs = await Faq.find({ status: "published" }).sort({ category: 1, question: 1 }).lean();
@@ -36,7 +48,9 @@ export async function getPublishedFaqs(): Promise<FaqItem[]> {
       return getSampleFaqs();
     }
 
-    return docs.map((doc) => toFaqItem(doc as Parameters<typeof toFaqItem>[0]));
+    const data = docs.map((doc) => toFaqItem(doc as Parameters<typeof toFaqItem>[0]));
+    publishedCache = { data, at: Date.now() };
+    return data;
   } catch {
     return getSampleFaqs();
   }

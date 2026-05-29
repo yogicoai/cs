@@ -199,6 +199,7 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
     }
 
     setAiLoading(true);
+    setAiAnswer(null);
 
     try {
       const response = await fetch("/api/ai-query", {
@@ -213,14 +214,55 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
         }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error("AI query failed");
       }
 
-      setAiAnswer((await response.json()) as AiAnswer);
-      window.setTimeout(() => {
-        aiAnswerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let scrolled = false;
+
+      const scrollToAnswer = () => {
+        if (scrolled) {
+          return;
+        }
+        scrolled = true;
+        window.setTimeout(() => {
+          aiAnswerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 50);
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const raw of lines) {
+          if (!raw.trim()) {
+            continue;
+          }
+          const message = JSON.parse(raw) as
+            | { type: "meta"; status: AiAnswer["status"]; answer?: string; sources: AiAnswer["sources"]; suggestions: AiAnswer["suggestions"] }
+            | { type: "delta"; text: string }
+            | { type: "done" };
+
+          if (message.type === "meta") {
+            setAiAnswer({
+              status: message.status,
+              answer: message.answer ?? "",
+              sources: message.sources ?? [],
+              suggestions: message.suggestions ?? [],
+            });
+            scrollToAnswer();
+          } else if (message.type === "delta") {
+            setAiAnswer((prev) => (prev ? { ...prev, answer: prev.answer + message.text } : prev));
+          }
+        }
+      }
     } catch {
       setAiAnswer({
         status: "needs_handoff",

@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
-import { extractOutputText } from "@/lib/openai";
 import { filterFaqsByChannel } from "@/lib/faqVisibility";
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
 import { EventLog } from "@/models/EventLog";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.2-pro";
+// 고객 답변은 응답 속도가 중요하므로 가벼운 모델을 사용한다(근거 기반 짧은 재서술).
+// 어드민 AI 분석(insight)은 별도로 OPENAI_MODEL(고성능)을 그대로 쓴다.
+const ANSWER_MODEL = process.env.OPENAI_ANSWER_MODEL ?? "gpt-5.2";
 
 const aiQuerySchema = z.object({
   channel: z.string().min(1),
@@ -184,6 +184,11 @@ async function logAiQuery(payload: z.infer<typeof aiQuerySchema>, hasResult: boo
   }
 }
 
+// 근거 컨텍스트가 길수록 첫 토큰 지연(prefill)이 커지므로 답변 길이를 제한한다.
+function clipAnswer(answer: string) {
+  return answer.length > 700 ? `${answer.slice(0, 700)}…` : answer;
+}
+
 function buildGroundingContext(rankedFaqs: Array<{ faq: Awaited<ReturnType<typeof getPublishedFaqs>>[number]; score: number }>) {
   return rankedFaqs
     .map(
@@ -191,17 +196,22 @@ function buildGroundingContext(rankedFaqs: Array<{ faq: Awaited<ReturnType<typeo
 카테고리: ${item.faq.category}
 문의 유형: ${item.faq.subcategory || "없음"}
 질문: ${item.faq.question}
-답변: ${item.faq.answer}`,
+답변: ${clipAnswer(item.faq.answer)}`,
     )
     .join("\n\n---\n\n");
 }
 
-async function generateGroundedAnswer(
+const ANSWER_INSTRUCTIONS =
+  "당신은 Yogibo 고객센터 FAQ 안내 AI입니다. 반드시 제공된 FAQ 근거 안에서만 한국어로 답변하세요. 근거에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 서로 충돌하는 FAQ가 있으면 가장 직접적으로 관련된 FAQ를 우선하고, 불확실하면 단정하지 마세요. 가격, 일정, 정책은 FAQ에 적힌 내용만 말하세요. FAQ 안에 URL이 있으면 URL을 새로 만들거나 바꾸지 말고 원문 URL만 유지하세요. 핵심만 3문장 이내로, 군더더기 없이 친절하게 답하세요.";
+
+// OpenAI Responses 스트리밍을 받아 텍스트 델타를 콜백으로 흘려보낸다. 토큰이 하나라도 오면 true.
+async function streamGroundedAnswer(
   query: string,
   rankedFaqs: Array<{ faq: Awaited<ReturnType<typeof getPublishedFaqs>>[number]; score: number }>,
+  onDelta: (text: string) => void,
 ) {
   if (!OPENAI_API_KEY) {
-    return null;
+    return false;
   }
 
   try {
@@ -212,31 +222,61 @@ async function generateGroundedAnswer(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
-        reasoning: { effort: "high" },
-        instructions:
-          "당신은 Yogibo 고객센터 FAQ 안내 AI입니다. 반드시 제공된 FAQ 근거 안에서만 한국어로 답변하세요. 근거에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 서로 충돌하는 FAQ가 있으면 가장 직접적으로 관련된 FAQ를 우선하고, 불확실하면 단정하지 마세요. 가격, 일정, 정책은 FAQ에 적힌 내용만 말하세요. FAQ 안에 URL이 있으면 URL을 새로 만들거나 바꾸지 말고 원문 URL만 유지하세요. 고객에게 친절하고 짧게 답변하세요.",
+        model: ANSWER_MODEL,
+        stream: true,
+        instructions: ANSWER_INSTRUCTIONS,
         input: `고객 질문: ${query}
 
 아래 FAQ 근거만 사용하세요.
 
-${buildGroundingContext(rankedFaqs)}
+${buildGroundingContext(rankedFaqs.slice(0, 2))}
 
-답변 형식:
-- 첫 문장은 고객 질문에 대한 직접 답변
-- 필요한 경우 2~4개의 짧은 안내 문장
-- 마지막에 "아래 참고 FAQ도 확인해 주세요."라고 자연스럽게 마무리`,
-        max_output_tokens: 420,
+답변 형식: 첫 문장에 질문에 대한 직접 답변, 필요하면 1~2문장만 보충. 인사말이나 맺음말은 넣지 마세요.`,
+        max_output_tokens: 300,
       }),
     });
 
-    if (!response.ok) {
-      return null;
+    if (!response.ok || !response.body) {
+      return false;
     }
 
-    return extractOutputText(await response.json()) || null;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let got = false;
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) {
+          continue;
+        }
+        const data = trimmed.slice(5).trim();
+        if (!data || data === "[DONE]") {
+          continue;
+        }
+        try {
+          const event = JSON.parse(data) as { type?: string; delta?: string };
+          if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+            onDelta(event.delta);
+            got = true;
+          }
+        } catch {
+          // 불완전한 SSE 조각은 건너뛴다.
+        }
+      }
+    }
+
+    return got;
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -259,49 +299,56 @@ export async function POST(request: Request) {
     handoffLevel: handoff.level,
   });
 
+  const sourceList = rankedFaqs.map((item) => ({
+    id: item.faq.id,
+    question: item.faq.question,
+    category: item.faq.category,
+    subcategory: item.faq.subcategory,
+    score: item.score,
+  }));
+  const suggestionList = rankedFaqs.map((item) => ({
+    id: item.faq.id,
+    question: item.faq.question,
+    category: item.faq.category,
+    subcategory: item.faq.subcategory,
+  }));
+
+  const encoder = new TextEncoder();
+  const line = (obj: unknown) => encoder.encode(`${JSON.stringify(obj)}\n`);
+  const headers = { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" };
+
   if (!hasConfidentAnswer || handoff.level === "required") {
-    return NextResponse.json({
+    const answer = hasConfidentAnswer
+      ? handoff.message
+      : "보유한 FAQ 안에서 확실한 답변을 찾지 못했습니다.\n\n상담톡에서 문의 내용을 남겨주시면 더 정확히 확인해 드릴게요.";
+    const body = line({
+      type: "meta",
       status: "needs_handoff",
-      answer: hasConfidentAnswer
-        ? handoff.message
-        : "보유한 FAQ 안에서 확실한 답변을 찾지 못했습니다.\n\n상담톡에서 문의 내용을 남겨주시면 더 정확히 확인해 드릴게요.",
-      sources: handoff.level === "required"
-        ? rankedFaqs.map((item) => ({
-            id: item.faq.id,
-            question: item.faq.question,
-            category: item.faq.category,
-            subcategory: item.faq.subcategory,
-            score: item.score,
-          }))
-        : [],
-      suggestions: rankedFaqs.map((item) => ({
-        id: item.faq.id,
-        question: item.faq.question,
-        category: item.faq.category,
-        subcategory: item.faq.subcategory,
-      })),
+      answer,
+      sources: handoff.level === "required" ? sourceList : [],
+      suggestions: suggestionList,
     });
+    return new Response(new Blob([body, line({ type: "done" })]).stream(), { headers });
   }
 
-  const generatedAnswer = await generateGroundedAnswer(payload.query, rankedFaqs);
-  const answer = generatedAnswer ?? `확인된 FAQ 기준으로 안내드릴게요.\n\n${bestMatch.faq.answer}`;
+  const status = handoff.level === "recommended" ? "answered_handoff" : "answered";
+  const prefix = handoff.level === "recommended" ? `${handoff.message}\n\n` : "";
 
-  return NextResponse.json({
-    status: handoff.level === "recommended" ? "answered_handoff" : "answered",
-    answer: handoff.level === "recommended" ? `${handoff.message}\n\n${answer}` : answer,
-    answerMode: generatedAnswer ? "openai_grounded" : "faq_grounded",
-    sources: rankedFaqs.map((item) => ({
-      id: item.faq.id,
-      question: item.faq.question,
-      category: item.faq.category,
-      subcategory: item.faq.subcategory,
-      score: item.score,
-    })),
-    suggestions: rankedFaqs.slice(1).map((item) => ({
-      id: item.faq.id,
-      question: item.faq.question,
-      category: item.faq.category,
-      subcategory: item.faq.subcategory,
-    })),
+  const stream = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(
+        line({ type: "meta", status, answer: prefix, sources: sourceList, suggestions: suggestionList.slice(1) }),
+      );
+      const got = await streamGroundedAnswer(payload.query, rankedFaqs, (text) =>
+        controller.enqueue(line({ type: "delta", text })),
+      );
+      if (!got) {
+        controller.enqueue(line({ type: "delta", text: bestMatch.faq.answer }));
+      }
+      controller.enqueue(line({ type: "done" }));
+      controller.close();
+    },
   });
+
+  return new Response(stream, { headers });
 }
