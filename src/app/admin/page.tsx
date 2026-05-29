@@ -1,9 +1,11 @@
 import { AdminFaqManager } from "@/components/AdminFaqManager";
+import { ClaimManager } from "@/components/ClaimManager";
 import { EngagementDashboard } from "@/components/EngagementDashboard";
+import { getAllClaims } from "@/lib/repositories/claimRepository";
 import { getAdminFaqs } from "@/lib/repositories/faqRepository";
 
 export default async function AdminPage() {
-  const faqs = await getAdminFaqs();
+  const [faqs, claims] = await Promise.all([getAdminFaqs(), getAllClaims()]);
 
   return (
     <main className="admin-shell">
@@ -17,6 +19,8 @@ export default async function AdminPage() {
       <EngagementDashboard faqCount={faqs.length} />
 
       <AdminFaqManager initialFaqs={faqs} />
+
+      <ClaimManager initialClaims={claims} />
     </main>
   );
 }

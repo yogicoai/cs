@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { filterFaqsByChannel } from "@/lib/faqVisibility";
+import { getLiveClaims, type ClaimItem } from "@/lib/repositories/claimRepository";
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
 import { EventLog } from "@/models/EventLog";
 
@@ -184,9 +185,41 @@ async function logAiQuery(payload: z.infer<typeof aiQuerySchema>, hasResult: boo
   }
 }
 
+// 고객 클레임(사례) 매칭 점수. 상황·키워드 기준으로만 매칭한다.
+function scoreClaim(query: string, claim: ClaimItem) {
+  const queryTokens = tokenize(query);
+  const text = normalizeText(`${claim.situation} ${claim.keywords.join(" ")}`);
+  let score = 0;
+
+  for (const token of queryTokens) {
+    if (hasTokenMatch(text, token)) {
+      score += 5;
+    }
+  }
+
+  if (text.includes(normalizeText(query))) {
+    score += 8;
+  }
+  if (compactText(text).includes(compactText(query))) {
+    score += 12;
+  }
+
+  return score;
+}
+
 // 근거 컨텍스트가 길수록 첫 토큰 지연(prefill)이 커지므로 답변 길이를 제한한다.
 function clipAnswer(answer: string) {
   return answer.length > 700 ? `${answer.slice(0, 700)}…` : answer;
+}
+
+function buildClaimContext(claims: ClaimItem[]) {
+  return claims
+    .map(
+      (claim, index) => `사례 ${index + 1}
+상황: ${claim.situation}
+응대: ${clipAnswer(claim.answer)}`,
+    )
+    .join("\n\n---\n\n");
 }
 
 function buildGroundingContext(rankedFaqs: Array<{ faq: Awaited<ReturnType<typeof getPublishedFaqs>>[number]; score: number }>) {
@@ -202,14 +235,10 @@ function buildGroundingContext(rankedFaqs: Array<{ faq: Awaited<ReturnType<typeo
 }
 
 const ANSWER_INSTRUCTIONS =
-  "당신은 Yogibo 고객센터 FAQ 안내 AI입니다. 반드시 제공된 FAQ 근거 안에서만 한국어로 답변하세요. 근거에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 서로 충돌하는 FAQ가 있으면 가장 직접적으로 관련된 FAQ를 우선하고, 불확실하면 단정하지 마세요. 가격, 일정, 정책은 FAQ에 적힌 내용만 말하세요. FAQ 안에 URL이 있으면 URL을 새로 만들거나 바꾸지 말고 원문 URL만 유지하세요. 핵심만 3문장 이내로, 군더더기 없이 친절하게 답하세요.";
+  "당신은 Yogibo 고객센터 FAQ 안내 AI입니다. 반드시 제공된 FAQ 근거와 고객 사례 응대 안에서만 한국어로 답변하세요. 근거에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 서로 충돌하면 가장 직접적으로 관련된 근거를 우선하고, 불확실하면 단정하지 마세요. 가격, 일정, 정책은 근거에 적힌 내용만 말하세요. URL이 있으면 새로 만들거나 바꾸지 말고 원문 URL만 유지하세요. 핵심만 3문장 이내로, 군더더기 없이 친절하게 답하세요.";
 
 // OpenAI Responses 스트리밍을 받아 텍스트 델타를 콜백으로 흘려보낸다. 토큰이 하나라도 오면 true.
-async function streamGroundedAnswer(
-  query: string,
-  rankedFaqs: Array<{ faq: Awaited<ReturnType<typeof getPublishedFaqs>>[number]; score: number }>,
-  onDelta: (text: string) => void,
-) {
+async function streamGroundedAnswer(query: string, grounding: string, onDelta: (text: string) => void) {
   if (!OPENAI_API_KEY) {
     return false;
   }
@@ -227,9 +256,9 @@ async function streamGroundedAnswer(
         instructions: ANSWER_INSTRUCTIONS,
         input: `고객 질문: ${query}
 
-아래 FAQ 근거만 사용하세요.
+아래 근거만 사용하세요.
 
-${buildGroundingContext(rankedFaqs.slice(0, 2))}
+${grounding}
 
 답변 형식: 첫 문장에 질문에 대한 직접 답변, 필요하면 1~2문장만 보충. 인사말이나 맺음말은 넣지 마세요.`,
         max_output_tokens: 300,
@@ -282,19 +311,29 @@ ${buildGroundingContext(rankedFaqs.slice(0, 2))}
 
 export async function POST(request: Request) {
   const payload = aiQuerySchema.parse(await request.json());
-  const faqs = filterFaqsByChannel(await getPublishedFaqs(), payload.channel);
+  const [allFaqs, allClaims] = await Promise.all([getPublishedFaqs(), getLiveClaims()]);
+  const faqs = filterFaqsByChannel(allFaqs, payload.channel);
   const rankedFaqs = faqs
     .map((faq) => ({ faq, score: scoreFaq(payload.query, faq, payload.category, payload.subcategory) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
+  // 클레임은 고객 탐색에는 절대 노출되지 않고, AI 응답 근거로만 쓰인다.
+  const rankedClaims = allClaims
+    .map((claim) => ({ claim, score: scoreClaim(payload.query, claim) }))
+    .filter((item) => item.score >= 6)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2);
+
   const bestMatch = rankedFaqs[0];
-  const hasConfidentAnswer = Boolean(bestMatch && bestMatch.score >= 6);
+  const hasConfidentFaq = Boolean(bestMatch && bestMatch.score >= 6);
+  const hasConfidentAnswer = hasConfidentFaq || rankedClaims.length > 0;
   const handoff = assessHandoffNeed(payload.query, bestMatch?.faq);
 
   await logAiQuery(payload, hasConfidentAnswer, {
     subcategory: payload.subcategory ?? "",
     matchedFaqIds: rankedFaqs.map((item) => item.faq.id),
+    matchedClaimIds: rankedClaims.map((item) => item.claim.id),
     topScore: bestMatch?.score ?? 0,
     handoffLevel: handoff.level,
   });
@@ -334,16 +373,23 @@ export async function POST(request: Request) {
   const status = handoff.level === "recommended" ? "answered_handoff" : "answered";
   const prefix = handoff.level === "recommended" ? `${handoff.message}\n\n` : "";
 
+  const faqGrounding = buildGroundingContext(rankedFaqs.slice(0, 2));
+  const claimGrounding = rankedClaims.length
+    ? `[고객 사례 대응 — 위 내용으로 부족할 때 우선 참고]\n${buildClaimContext(rankedClaims.map((item) => item.claim))}`
+    : "";
+  const grounding = [faqGrounding, claimGrounding].filter(Boolean).join("\n\n");
+  const fallbackAnswer = bestMatch?.faq.answer ?? rankedClaims[0]?.claim.answer ?? "";
+
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(
         line({ type: "meta", status, answer: prefix, sources: sourceList, suggestions: suggestionList.slice(1) }),
       );
-      const got = await streamGroundedAnswer(payload.query, rankedFaqs, (text) =>
+      const got = await streamGroundedAnswer(payload.query, grounding, (text) =>
         controller.enqueue(line({ type: "delta", text })),
       );
-      if (!got) {
-        controller.enqueue(line({ type: "delta", text: bestMatch.faq.answer }));
+      if (!got && fallbackAnswer) {
+        controller.enqueue(line({ type: "delta", text: fallbackAnswer }));
       }
       controller.enqueue(line({ type: "done" }));
       controller.close();
