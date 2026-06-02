@@ -1,8 +1,8 @@
 "use client";
 
-import { Download, FileSpreadsheet, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, Pencil, Sparkles, Trash2, Upload } from "lucide-react";
 import readXlsxFile from "read-excel-file/browser";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ClaimItem, ClaimStatus } from "@/lib/repositories/claimRepository";
 
 const TEMPLATE_HEADERS = ["고객문의(상황)", "CS답변"];
@@ -10,6 +10,7 @@ const TEMPLATE_ROWS = [
   ["주문한 지 일주일이 지났는데 아직도 상품을 못 받았어요", "현재 주문량 증가로 배송이 지연되고 있습니다. 주문번호 확인 후 출고 일정을 안내드렸습니다."],
   ["커버 지퍼가 처음부터 고장나 있었어요", "제품 하자로 확인되어 무상 교환 접수 도와드렸습니다."],
 ];
+const CLAIM_PAGE_SIZE = 10;
 
 type ClaimRow = { situation: string; csAnswer: string };
 
@@ -73,6 +74,13 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestingId, setSuggestingId] = useState("");
+  const [claimPage, setClaimPage] = useState(1);
+  const [editingClaimId, setEditingClaimId] = useState("");
+
+  const boardClaims = useMemo(() => claims.filter((claim) => claim.status !== "live"), [claims]);
+  const totalClaimPages = Math.ceil(boardClaims.length / CLAIM_PAGE_SIZE);
+  const currentClaimPage = Math.min(claimPage, totalClaimPages || 1);
+  const pageClaims = boardClaims.slice((currentClaimPage - 1) * CLAIM_PAGE_SIZE, currentClaimPage * CLAIM_PAGE_SIZE);
 
   async function reload() {
     const response = await fetch("/api/claims", { cache: "no-store" });
@@ -205,78 +213,126 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
 
       {claims.length === 0 ? (
         <p className="empty-state">등록된 클레임이 없습니다. 양식을 받아 작성 후 업로드해 주세요.</p>
+      ) : boardClaims.length === 0 ? (
+        <p className="empty-state">검토/보류 중인 클레임이 없습니다. 라이브 클레임은 위 FAQ 목록의 고객 클레임 섹션에서 수정할 수 있습니다.</p>
       ) : (
-        <div className="claim-cards">
-          {claims.map((claim) => (
-            <article className={`claim-card status-${claim.status}`} key={claim.id}>
-              <div className="claim-card-head">
-                <span className="claim-cat">{claim.category || "미분류"}</span>
-                <select
-                  className="claim-status"
-                  aria-label="상태"
-                  value={claim.status}
-                  onChange={(event) => void patchClaim(claim.id, { status: event.target.value as ClaimStatus })}
-                >
-                  <option value="review">검토중</option>
-                  <option value="live">라이브</option>
-                  <option value="hold">보류</option>
-                </select>
-                <button aria-label="삭제" type="button" onClick={() => void deleteClaim(claim.id)}>
-                  <Trash2 size={15} />
-                </button>
-              </div>
-
-              <div className="claim-field">
-                <label>고객 문의</label>
-                <p>{claim.situation}</p>
-                {claim.keywords.length > 0 && <em className="claim-kw">{claim.keywords.join(", ")}</em>}
-              </div>
-
-              <div className="claim-grid">
-                <div className="claim-field">
-                  <label>CS 답변</label>
-                  {claim.csAnswer ? <p className="claim-cs">{claim.csAnswer}</p> : <p className="claim-muted">-</p>}
-                </div>
-                <div className="claim-field">
-                  <label>AI 추천 답변</label>
-                  {claim.aiSuggestedAnswer ? (
-                    <p className="claim-suggest">{claim.aiSuggestedAnswer}</p>
-                  ) : (
-                    <p className="claim-muted">아직 생성하지 않았습니다.</p>
-                  )}
-                  <div className="claim-suggest-actions">
-                    <button type="button" onClick={() => void suggest(claim.id)} disabled={suggestingId === claim.id}>
-                      {suggestingId === claim.id ? <Loader2 size={14} className="spin-icon" /> : <Sparkles size={14} />}
-                      AI 답변 들어보기
-                    </button>
-                    {claim.aiSuggestedAnswer && (
-                      <button type="button" onClick={() => void patchClaim(claim.id, { answer: claim.aiSuggestedAnswer })}>
-                        이 답변 채택 →
+        <div className="claim-board">
+          <div className="table">
+            <div className="table-row table-head">
+              <span>상태</span>
+              <span>카테고리</span>
+              <span>고객 문의</span>
+              <span>관리</span>
+            </div>
+            {pageClaims.map((claim) => {
+              const open = editingClaimId === claim.id;
+              return (
+                <div className={`claim-board-item status-${claim.status}`} key={claim.id}>
+                  <div className="table-row">
+                    <span>
+                      <select
+                        className="claim-status"
+                        aria-label="상태"
+                        value={claim.status}
+                        onChange={(event) => void patchClaim(claim.id, { status: event.target.value as ClaimStatus })}
+                      >
+                        <option value="review">검토중</option>
+                        <option value="live">라이브</option>
+                        <option value="hold">보류</option>
+                      </select>
+                    </span>
+                    <span>{claim.category || "미분류"}</span>
+                    <span title={claim.situation}>
+                      <button
+                        className="claim-question-toggle"
+                        type="button"
+                        aria-expanded={open ? "true" : "false"}
+                        onClick={() => setEditingClaimId(open ? "" : claim.id)}
+                      >
+                        {claim.situation}
                       </button>
-                    )}
+                    </span>
+                    <span className="row-actions">
+                      <button
+                        aria-label="클레임 편집"
+                        type="button"
+                        onClick={() => setEditingClaimId(open ? "" : claim.id)}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button aria-label="삭제" type="button" onClick={() => void deleteClaim(claim.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </span>
                   </div>
-                </div>
-              </div>
+                  {open && (
+                    <article className="claim-card claim-board-detail">
+                      <div className="claim-field">
+                        <label>고객 문의</label>
+                        <p>{claim.situation}</p>
+                        {claim.keywords.length > 0 && <em className="claim-kw">{claim.keywords.join(", ")}</em>}
+                      </div>
 
-              <div className="claim-field claim-final">
-                <label>최종 답변 (라이브용)</label>
-                <textarea
-                  defaultValue={claim.answer}
-                  key={`${claim.id}-${claim.answer}`}
-                  rows={4}
-                  placeholder="라이브로 사용할 최종 답변을 확정하세요"
-                  onBlur={(event) => {
-                    if (event.target.value !== claim.answer) {
-                      void patchClaim(claim.id, { answer: event.target.value });
-                    }
-                  }}
-                />
-                {claim.status === "live" && !claim.answer && (
-                  <span className="claim-warn">최종 답변이 비어 있어 AI가 사용하지 않습니다.</span>
-                )}
-              </div>
-            </article>
-          ))}
+                      <div className="claim-grid">
+                        <div className="claim-field">
+                          <label>CS 답변</label>
+                          {claim.csAnswer ? <p className="claim-cs">{claim.csAnswer}</p> : <p className="claim-muted">-</p>}
+                        </div>
+                        <div className="claim-field">
+                          <label>AI 추천 답변</label>
+                          {claim.aiSuggestedAnswer ? (
+                            <p className="claim-suggest">{claim.aiSuggestedAnswer}</p>
+                          ) : (
+                            <p className="claim-muted">아직 생성하지 않았습니다.</p>
+                          )}
+                          <div className="claim-suggest-actions">
+                            <button type="button" onClick={() => void suggest(claim.id)} disabled={suggestingId === claim.id}>
+                              {suggestingId === claim.id ? <Loader2 size={14} className="spin-icon" /> : <Sparkles size={14} />}
+                              AI 답변 들어보기
+                            </button>
+                            {claim.aiSuggestedAnswer && (
+                              <button type="button" onClick={() => void patchClaim(claim.id, { answer: claim.aiSuggestedAnswer })}>
+                                이 답변 채택 →
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="claim-field claim-final">
+                        <label>최종 답변 (라이브용)</label>
+                        <textarea
+                          defaultValue={claim.answer}
+                          key={`${claim.id}-${claim.answer}`}
+                          rows={4}
+                          placeholder="라이브로 사용할 최종 답변을 확정하세요"
+                          onBlur={(event) => {
+                            if (event.target.value !== claim.answer) {
+                              void patchClaim(claim.id, { answer: event.target.value });
+                            }
+                          }}
+                        />
+                      </div>
+                    </article>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {totalClaimPages > 1 && (
+            <div className="faq-pager">
+              {Array.from({ length: totalClaimPages }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={n === currentClaimPage ? "active" : ""}
+                  onClick={() => setClaimPage(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>

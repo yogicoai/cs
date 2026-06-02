@@ -8,6 +8,7 @@ import type { FaqItem } from "@/lib/sample-data";
 
 type FormState = {
   id: string;
+  source: "faq" | "claim";
   category: string;
   subcategory: string;
   question: string;
@@ -18,6 +19,7 @@ type FormState = {
 
 const emptyForm: FormState = {
   id: "",
+  source: "faq",
   category: "",
   subcategory: "",
   question: "",
@@ -54,12 +56,15 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
   const [newCategory, setNewCategory] = useState(false);
   const [newSubcategory, setNewSubcategory] = useState(false);
   const isEditing = Boolean(form.id);
+  const isClaimEditing = form.source === "claim";
 
   const [openCats, setOpenCats] = useState<Set<string>>(new Set());
+  const [claimSectionOpen, setClaimSectionOpen] = useState(false);
   const [catPage, setCatPage] = useState<Record<string, number>>({});
   const PAGE_SIZE = 10;
 
   function toggleCat(category: string) {
+    setClaimSectionOpen(false);
     setOpenCats((prev) => {
       const next = new Set(prev);
       if (next.has(category)) {
@@ -69,6 +74,11 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
       }
       return next;
     });
+  }
+
+  function toggleClaimSection() {
+    setOpenCats(new Set());
+    setClaimSectionOpen((open) => !open);
   }
 
   function resetForm() {
@@ -127,18 +137,22 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
     }
   }
 
-  const categories = useMemo(() => Array.from(new Set(faqs.map((faq) => faq.category))).sort(), [faqs]);
+  const faqCategories = useMemo(() => Array.from(new Set(faqs.map((faq) => faq.category))).sort(), [faqs]);
+  const categories = useMemo(
+    () => Array.from(new Set([...faqs.map((faq) => faq.category), ...liveClaims.map((claim) => claim.category)].filter(Boolean))).sort(),
+    [faqs, liveClaims],
+  );
   const subcategories = useMemo(
     () =>
       Array.from(
         new Set(
-          faqs
-            .filter((faq) => faq.category === form.category)
-            .map((faq) => faq.subcategory)
-            .filter(Boolean) as string[],
+          [
+            ...faqs.filter((faq) => faq.category === form.category).map((faq) => faq.subcategory),
+            ...liveClaims.filter((claim) => claim.category === form.category).map((claim) => claim.subcategory),
+          ].filter(Boolean) as string[],
         ),
       ).sort(),
-    [faqs, form.category],
+    [faqs, liveClaims, form.category],
   );
 
   function editFaq(faq: FaqItem) {
@@ -146,6 +160,7 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
     setNewSubcategory(false);
     setForm({
       id: faq.id,
+      source: "faq",
       category: faq.category,
       subcategory: faq.subcategory ?? "",
       question: faq.question,
@@ -156,19 +171,78 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
     setMessage("");
   }
 
+  function editClaim(claim: ClaimItem) {
+    setNewCategory(false);
+    setNewSubcategory(false);
+    setForm({
+      id: claim.id,
+      source: "claim",
+      category: claim.category,
+      subcategory: claim.subcategory ?? "",
+      question: claim.situation,
+      answer: claim.answer,
+      keywords: claim.keywords.join(", "),
+      status: "published",
+    });
+    setMessage("");
+    document.getElementById("faq-edit-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   async function submitFaq(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("저장 중입니다...");
+
+    const keywords = form.keywords
+      .split(",")
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
+
+    if (isClaimEditing) {
+      const response = await fetch(`/api/claims/${form.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: form.category,
+          subcategory: form.subcategory.trim(),
+          situation: form.question,
+          answer: form.answer,
+          keywords,
+          status: "live",
+        }),
+      });
+
+      if (!response.ok) {
+        setMessage("클레임 저장에 실패했습니다.");
+        return;
+      }
+
+      setLiveClaims((current) =>
+        current.map((claim) =>
+          claim.id === form.id
+            ? {
+                ...claim,
+                category: form.category,
+                subcategory: form.subcategory.trim(),
+                situation: form.question,
+                answer: form.answer,
+                keywords,
+                status: "live",
+              }
+            : claim,
+        ),
+      );
+      window.dispatchEvent(new Event("cs:claim-live-changed"));
+      resetForm();
+      setMessage("클레임 답변이 수정되었습니다.");
+      return;
+    }
 
     const payload = {
       category: form.category,
       subcategory: form.subcategory.trim(),
       question: form.question,
       answer: form.answer,
-      keywords: form.keywords
-        .split(",")
-        .map((keyword) => keyword.trim())
-        .filter(Boolean),
+      keywords,
       status: form.status,
     };
 
@@ -215,12 +289,29 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
     setMessage("삭제되었습니다.");
   }
 
+  async function deleteClaim(id: string) {
+    setMessage("클레임 삭제 중입니다...");
+    const response = await fetch(`/api/claims/${id}`, { method: "DELETE" });
+
+    if (!response.ok) {
+      setMessage("클레임 삭제에 실패했습니다.");
+      return;
+    }
+
+    setLiveClaims((current) => current.filter((claim) => claim.id !== id));
+    if (form.source === "claim" && form.id === id) {
+      resetForm();
+    }
+    window.dispatchEvent(new Event("cs:claim-live-changed"));
+    setMessage("클레임이 삭제되었습니다.");
+  }
+
   return (
     <section className="faq-admin-layout">
       <div className="admin-panel">
-        <div className="panel-title">
+        <div id="faq-edit-form" className="panel-title">
           <Pencil size={20} />
-          <h2>FAQ {isEditing ? "수정" : "추가"}</h2>
+          <h2>{isClaimEditing ? "고객 클레임 수정" : `FAQ ${isEditing ? "수정" : "추가"}`}</h2>
         </div>
         <div className="admin-ai-box">
           <div className="ai-title">
@@ -357,25 +448,27 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
               placeholder="배송, 출고, 택배"
             />
           </label>
-          <label>
-            상태
-            <select
-              value={form.status}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  status: event.target.value as FormState["status"],
-                }))
-              }
-            >
-              <option value="published">게시중</option>
-              <option value="draft">임시저장</option>
-            </select>
-          </label>
+          {!isClaimEditing && (
+            <label>
+              상태
+              <select
+                value={form.status}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    status: event.target.value as FormState["status"],
+                  }))
+                }
+              >
+                <option value="published">게시중</option>
+                <option value="draft">임시저장</option>
+              </select>
+            </label>
+          )}
           <div className="form-actions">
             <button type="submit">
               <Plus size={17} />
-              {isEditing ? "수정 저장" : "FAQ 추가"}
+              {isClaimEditing ? "클레임 저장" : isEditing ? "수정 저장" : "FAQ 추가"}
             </button>
             {isEditing && (
               <button type="button" onClick={resetForm}>
@@ -394,33 +487,40 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
         <div className="faq-cat-list">
           {liveClaims.length > 0 && (
             <div id="faq-claim-section" className="faq-cat-group faq-claim-group">
-              <div className="faq-cat-toggle is-claim">
-                <Bot size={16} />
-                <span className="faq-cat-name">고객 클레임 (어드민 라벨 · 고객에겐 출처 미노출)</span>
+              <button
+                className="faq-cat-toggle is-claim"
+                type="button"
+                onClick={toggleClaimSection}
+                aria-expanded={claimSectionOpen ? "true" : "false"}
+              >
+                <ChevronDown size={16} className={claimSectionOpen ? "" : "rot-collapsed"} />
+                <span className="faq-cat-name">
+                  고객 클레임
+                  <small>AI 자동 카테고리 분류 · 고객에게 클레임 출처 미노출</small>
+                </span>
                 <span className="faq-cat-count">{liveClaims.length}</span>
-              </div>
-              <div className="table">
-                {liveClaims.map((claim) => (
-                  <div className="table-row" key={claim.id}>
-                    <span>라이브</span>
-                    <span title={claim.answer}>{claim.situation}</span>
-                    <span className="row-actions">
-                      <button
-                        aria-label="클레임 관리로 이동"
-                        type="button"
-                        onClick={() =>
-                          document.getElementById("claim-manager-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                        }
-                      >
-                        <Pencil size={16} />
-                      </button>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              </button>
+              {claimSectionOpen && (
+                <div className="table">
+                  {liveClaims.map((claim) => (
+                    <div className="table-row" key={claim.id}>
+                      <span>라이브</span>
+                      <span title={claim.answer}>{claim.situation}</span>
+                      <span className="row-actions">
+                        <button aria-label="클레임 수정" type="button" onClick={() => editClaim(claim)}>
+                          <Pencil size={16} />
+                        </button>
+                        <button aria-label="클레임 삭제" type="button" onClick={() => void deleteClaim(claim.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-          {categories.map((category) => {
+          {faqCategories.map((category) => {
             const items = faqs.filter((faq) => faq.category === category);
             const open = openCats.has(category);
             const totalPages = Math.ceil(items.length / PAGE_SIZE);

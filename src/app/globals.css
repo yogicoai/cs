@@ -2247,8 +2247,68 @@ body {
 }
 
 .claim-cards {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+
+.claim-board .table {
+  display: block;
+}
+
+.claim-board .table-row {
+  grid-template-columns: 110px 130px minmax(0, 1fr) 86px;
+  align-items: center;
+}
+
+.claim-board .table-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.claim-board .claim-status {
+  width: 100%;
+  margin-left: 0;
+}
+
+.claim-question-toggle {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.claim-question-toggle:hover,
+.claim-question-toggle:focus-visible {
+  color: var(--primary-dark);
+}
+
+.claim-board-item {
+  border-top: 1px solid var(--line);
+}
+
+.claim-board-item:first-of-type {
+  border-top: 0;
+}
+
+.claim-board-item .table-row {
+  border-top: 0;
+}
+
+.claim-board-detail {
+  border-width: 1px 0 0;
+  border-left-width: 3px;
+  border-radius: 0;
 }
 
 .claim-card {
@@ -2257,7 +2317,8 @@ body {
   border-radius: 12px;
   background: #ffffff;
   padding: 18px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
 
@@ -2352,8 +2413,8 @@ body {
 }
 
 .claim-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   align-items: start;
 }
@@ -2394,8 +2455,12 @@ body {
 }
 
 @media (max-width: 720px) {
-  .claim-grid {
+  .claim-board .table-row {
     grid-template-columns: 1fr;
+  }
+
+  .claim-grid {
+    align-items: stretch;
   }
 }
 
@@ -2439,6 +2504,14 @@ body {
   text-align: left;
 }
 
+.faq-cat-name small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .faq-cat-count {
   font-size: 12px;
   font-weight: 700;
@@ -2465,13 +2538,17 @@ body {
 
 .faq-cat-toggle.is-claim {
   background: transparent;
-  cursor: default;
+  cursor: pointer;
   color: var(--primary-dark);
 }
 
 .faq-claim-group .table {
   padding: 8px;
   gap: 6px;
+}
+
+.faq-claim-group .table-row {
+  grid-template-columns: 110px minmax(0, 1fr) 86px;
 }
 
 .faq-pager {

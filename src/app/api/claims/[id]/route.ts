@@ -6,6 +6,7 @@ import { invalidateLiveClaims } from "@/lib/repositories/claimRepository";
 
 const updateSchema = z.object({
   category: z.string().optional(),
+  subcategory: z.string().optional(),
   situation: z.string().min(1).optional(),
   keywords: z.array(z.string()).optional(),
   csAnswer: z.string().optional(),
