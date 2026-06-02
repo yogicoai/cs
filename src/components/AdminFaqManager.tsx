@@ -396,7 +396,7 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
             <div id="faq-claim-section" className="faq-cat-group faq-claim-group">
               <div className="faq-cat-toggle is-claim">
                 <Bot size={16} />
-                <span className="faq-cat-name">고객 클레임 (어드민 전용 · 고객 비노출)</span>
+                <span className="faq-cat-name">고객 클레임 (어드민 라벨 · 고객에겐 출처 미노출)</span>
                 <span className="faq-cat-count">{liveClaims.length}</span>
               </div>
               <div className="table">

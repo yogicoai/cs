@@ -2256,9 +2256,9 @@ body {
   border-left: 3px solid var(--line);
   border-radius: 12px;
   background: #ffffff;
-  padding: 14px;
+  padding: 18px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .claim-card.status-live {
@@ -2321,7 +2321,28 @@ body {
 .claim-suggest {
   background: #f1faf4;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
+}
+
+.claim-cs {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #2c3a47;
+  line-height: 1.55;
+}
+
+.claim-final {
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+
+.claim-final label {
+  color: var(--primary-dark);
+}
+
+.claim-final textarea {
+  min-height: 96px;
 }
 
 .claim-kw {
@@ -2333,7 +2354,8 @@ body {
 .claim-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 18px;
+  align-items: start;
 }
 
 .claim-suggest-actions {

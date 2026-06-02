@@ -235,7 +235,7 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
               <div className="claim-grid">
                 <div className="claim-field">
                   <label>CS 답변</label>
-                  <p className="claim-muted">{claim.csAnswer || "-"}</p>
+                  {claim.csAnswer ? <p className="claim-cs">{claim.csAnswer}</p> : <p className="claim-muted">-</p>}
                 </div>
                 <div className="claim-field">
                   <label>AI 추천 답변</label>
@@ -258,12 +258,12 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
                 </div>
               </div>
 
-              <div className="claim-field">
+              <div className="claim-field claim-final">
                 <label>최종 답변 (라이브용)</label>
                 <textarea
                   defaultValue={claim.answer}
                   key={`${claim.id}-${claim.answer}`}
-                  rows={2}
+                  rows={4}
                   placeholder="라이브로 사용할 최종 답변을 확정하세요"
                   onBlur={(event) => {
                     if (event.target.value !== claim.answer) {

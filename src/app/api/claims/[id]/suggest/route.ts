@@ -11,7 +11,7 @@ const SUGGEST_MODEL = process.env.OPENAI_SUGGEST_MODEL ?? "gpt-4o-mini";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-function parseJson(text: string): { category?: string; answer?: string } {
+function parseJson(text: string): { category?: string; subcategory?: string; answer?: string } {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) {
     return {};
@@ -64,10 +64,23 @@ export async function POST(_request: Request, context: RouteContext) {
 
   const faqs = await getPublishedFaqs();
   const categories = Array.from(new Set(faqs.map((faq) => faq.category)));
+  const subcategoriesByCategory = categories.reduce<Record<string, string[]>>((acc, cat) => {
+    acc[cat] = Array.from(
+      new Set(
+        faqs
+          .filter((f) => f.category === cat && f.subcategory)
+          .map((f) => f.subcategory as string),
+      ),
+    );
+    return acc;
+  }, {});
   const refFaqs = relevantFaqs(claim.situation, faqs);
   const faqContext = refFaqs.length
-    ? refFaqs.map((faq, i) => `[FAQ ${i + 1}] (${faq.category}) ${faq.question}\n${faq.answer}`).join("\n\n")
+    ? refFaqs.map((faq, i) => `[FAQ ${i + 1}] (${faq.category} / ${faq.subcategory || "-"}) ${faq.question}\n${faq.answer}`).join("\n\n")
     : "(관련 게시판 FAQ 없음)";
+  const subList = categories
+    .map((cat) => `${cat}: [${(subcategoriesByCategory[cat] ?? []).join(", ") || "(없음)"}]`)
+    .join("\n");
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -76,7 +89,7 @@ export async function POST(_request: Request, context: RouteContext) {
       body: JSON.stringify({
         model: SUGGEST_MODEL,
         instructions:
-          "당신은 Yogibo 고객센터 응대 표준화 담당입니다. 고객 문의를 보고, 아래 'FAQ 게시판 내용'에 등록된 답변을 최대한 그대로 활용해 답변을 작성하세요. CS 실제 응대는 보조 참고용이며, FAQ와 충돌하면 반드시 FAQ를 따릅니다. FAQ에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 개인정보(이름·주문번호·연락처)는 답변에 넣지 마세요. 핵심만 3문장 이내로 친절하게 쓰세요. 카테고리는 주어진 목록 중 가장 적합한 하나를 고르세요. 반드시 JSON만 출력하세요.",
+          "당신은 Yogibo 고객센터 응대 표준화 담당입니다. 고객 문의를 보고, 아래 'FAQ 게시판 내용'에 등록된 답변을 최대한 그대로 활용해 답변을 작성하세요. CS 실제 응대는 보조 참고용이며, FAQ와 충돌하면 반드시 FAQ를 따릅니다. FAQ에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 개인정보(이름·주문번호·연락처)는 답변에 넣지 마세요. 핵심만 3문장 이내로 친절하게 쓰세요. 카테고리는 주어진 목록 중 가장 적합한 하나, 문의 유형(subcategory)은 해당 카테고리의 후보 목록 중 가장 적합한 하나를 고르세요(딱 맞는 게 없으면 빈 문자열). 반드시 JSON만 출력하세요.",
         input: `고객 문의:
 ${claim.situation}
 
@@ -87,8 +100,10 @@ CS 실제 응대(참고):
 ${claim.csAnswer || "(없음)"}
 
 카테고리 후보: ${categories.join(", ") || "없음"}
+카테고리별 문의 유형(subcategory) 후보:
+${subList}
 
-출력 형식(JSON만): {"category": "<후보 중 하나>", "answer": "<게시판 FAQ와 일관된 표준 답변>"}`,
+출력 형식(JSON만): {"category": "<후보 중 하나>", "subcategory": "<해당 카테고리의 후보 중 하나 또는 빈 문자열>", "answer": "<게시판 FAQ와 일관된 표준 답변>"}`,
         max_output_tokens: 400,
       }),
     });
@@ -106,6 +121,9 @@ ${claim.csAnswer || "(없음)"}
     claim.aiSuggestedAnswer = parsed.answer;
     if (!claim.category && parsed.category && categories.includes(parsed.category)) {
       claim.category = parsed.category;
+    }
+    if (!claim.subcategory && parsed.subcategory && (subcategoriesByCategory[claim.category] ?? []).includes(parsed.subcategory)) {
+      claim.subcategory = parsed.subcategory;
     }
     await claim.save();
     invalidateLiveClaims();

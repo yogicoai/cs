@@ -7,6 +7,7 @@ import { model, models, Schema } from "mongoose";
 const claimSchema = new Schema(
   {
     category: { type: String, default: "", index: true },
+    subcategory: { type: String, default: "" },
     situation: { type: String, required: true },
     keywords: [{ type: String }],
     csAnswer: { type: String, default: "" },
