@@ -63,6 +63,7 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
   const [resolved, setResolved] = useState(false);
   const [questionFilter, setQuestionFilter] = useState("");
   const aiAnswerRef = useRef<HTMLDivElement>(null);
+  const loggedNoResultFilters = useRef<Set<string>>(new Set());
 
   const categories = useMemo(() => Array.from(new Set(faqs.map((faq) => faq.category))), [faqs]);
   const categoryFaqs = useMemo(() => faqs.filter((faq) => faq.category === category), [category, faqs]);
@@ -110,6 +111,29 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
       body: JSON.stringify({ channel, sessionId: getSessionId(), eventType: "visit" }),
     });
   }, [channel]);
+
+  useEffect(() => {
+    const queryText = questionFilter.trim();
+    if (queryText.length < 2 || visibleFaqs.length === 0 || displayedFaqs.length > 0) {
+      return;
+    }
+
+    const key = `${channel}|${category}|${subcategory}|${queryText.toLowerCase()}`;
+    if (loggedNoResultFilters.current.has(key)) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      loggedNoResultFilters.current.add(key);
+      logEvent("no_result", {
+        category,
+        query: queryText,
+        metadata: { source: "question_filter", subcategory },
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [category, channel, displayedFaqs.length, questionFilter, subcategory, visibleFaqs.length]);
 
   function chooseCategory(nextCategory: string) {
     setCategory(nextCategory);
