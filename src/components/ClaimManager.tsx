@@ -143,6 +143,14 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+    // AdminFaqManager의 라이브 클레임 목록을 즉시 갱신하도록 알림
+    window.dispatchEvent(new Event("cs:claim-live-changed"));
+    if (patch.status === "live") {
+      setMessage("라이브로 전환되었습니다 — FAQ 목록의 '고객 클레임' 섹션에 추가됐어요.");
+      window.setTimeout(() => {
+        document.getElementById("faq-claim-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
   }
 
   async function suggest(id: string) {
@@ -168,10 +176,11 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
   async function deleteClaim(id: string) {
     await fetch(`/api/claims/${id}`, { method: "DELETE" });
     setClaims((current) => current.filter((claim) => claim.id !== id));
+    window.dispatchEvent(new Event("cs:claim-live-changed"));
   }
 
   return (
-    <section className="admin-panel claim-manager">
+    <section id="claim-manager-section" className="admin-panel claim-manager">
       <div className="panel-title">
         <FileSpreadsheet size={20} />
         <h2>고객 클레임 관리</h2>

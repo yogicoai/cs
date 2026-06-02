@@ -2435,6 +2435,23 @@ body {
   grid-template-columns: 110px minmax(0, 1fr) 70px;
 }
 
+/* FAQ 목록 내 '고객 클레임' 섹션 (어드민 전용 표시) */
+.faq-claim-group {
+  border-color: #cfe1f4;
+  background: #f8fbff;
+}
+
+.faq-cat-toggle.is-claim {
+  background: transparent;
+  cursor: default;
+  color: var(--primary-dark);
+}
+
+.faq-claim-group .table {
+  padding: 8px;
+  gap: 6px;
+}
+
 .faq-pager {
   display: flex;
   flex-wrap: wrap;

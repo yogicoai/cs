@@ -8,6 +8,7 @@ import { getAdminFaqs } from "@/lib/repositories/faqRepository";
 
 export default async function AdminPage() {
   const [faqs, claims] = await Promise.all([getAdminFaqs(), getAllClaims()]);
+  const liveClaims = claims.filter((claim) => claim.status === "live" && claim.answer);
 
   return (
     <main className="admin-shell">
@@ -24,7 +25,7 @@ export default async function AdminPage() {
 
       <EngagementDashboard faqCount={faqs.length} />
 
-      <AdminFaqManager initialFaqs={faqs} />
+      <AdminFaqManager initialFaqs={faqs} initialLiveClaims={liveClaims} />
 
       <ClaimManager initialClaims={claims} />
     </main>

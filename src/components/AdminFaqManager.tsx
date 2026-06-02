@@ -2,7 +2,8 @@
 
 import { Bot, ChevronDown, Loader2, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ClaimItem } from "@/lib/repositories/claimRepository";
 import type { FaqItem } from "@/lib/sample-data";
 
 type FormState = {
@@ -27,10 +28,27 @@ const emptyForm: FormState = {
 
 type AdminFaqManagerProps = {
   initialFaqs: FaqItem[];
+  initialLiveClaims?: ClaimItem[];
 };
 
-export function AdminFaqManager({ initialFaqs }: AdminFaqManagerProps) {
+export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFaqManagerProps) {
   const [faqs, setFaqs] = useState(initialFaqs);
+  const [liveClaims, setLiveClaims] = useState<ClaimItem[]>(initialLiveClaims);
+
+  // 클레임이 라이브로 전환되면 ClaimManager가 이벤트를 발사 → 여기서 라이브 목록을 새로 가져온다.
+  useEffect(() => {
+    function refreshLiveClaims() {
+      void fetch("/api/claims", { cache: "no-store" })
+        .then((response) => response.json())
+        .then((data) => {
+          const items = (data.claims as ClaimItem[]).filter((c) => c.status === "live" && c.answer);
+          setLiveClaims(items);
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("cs:claim-live-changed", refreshLiveClaims);
+    return () => window.removeEventListener("cs:claim-live-changed", refreshLiveClaims);
+  }, []);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [message, setMessage] = useState("");
   const [newCategory, setNewCategory] = useState(false);
@@ -374,6 +392,34 @@ export function AdminFaqManager({ initialFaqs }: AdminFaqManagerProps) {
           <h2>FAQ 목록</h2>
         </div>
         <div className="faq-cat-list">
+          {liveClaims.length > 0 && (
+            <div id="faq-claim-section" className="faq-cat-group faq-claim-group">
+              <div className="faq-cat-toggle is-claim">
+                <Bot size={16} />
+                <span className="faq-cat-name">고객 클레임 (어드민 전용 · 고객 비노출)</span>
+                <span className="faq-cat-count">{liveClaims.length}</span>
+              </div>
+              <div className="table">
+                {liveClaims.map((claim) => (
+                  <div className="table-row" key={claim.id}>
+                    <span>라이브</span>
+                    <span title={claim.answer}>{claim.situation}</span>
+                    <span className="row-actions">
+                      <button
+                        aria-label="클레임 관리로 이동"
+                        type="button"
+                        onClick={() =>
+                          document.getElementById("claim-manager-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {categories.map((category) => {
             const items = faqs.filter((faq) => faq.category === category);
             const open = openCats.has(category);
