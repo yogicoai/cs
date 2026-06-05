@@ -2,7 +2,7 @@
 
 import { Download, FileSpreadsheet, Loader2, Pencil, Sparkles, Trash2, Upload } from "lucide-react";
 import readXlsxFile from "read-excel-file/browser";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ClaimItem, ClaimStatus } from "@/lib/repositories/claimRepository";
 
 const TEMPLATE_HEADERS = ["고객문의(상황)", "CS답변"];
@@ -88,6 +88,15 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
     setClaims(data.claims as ClaimItem[]);
   }
 
+  // 다른 컴포넌트(AdminFaqManager)에서 클레임을 수정/삭제하면 이쪽도 동기화한다.
+  useEffect(() => {
+    function onChange() {
+      void reload().catch(() => {});
+    }
+    window.addEventListener("cs:claim-live-changed", onChange);
+    return () => window.removeEventListener("cs:claim-live-changed", onChange);
+  }, []);
+
   async function onUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -121,6 +130,31 @@ export function ClaimManager({ initialClaims }: { initialClaims: ClaimItem[] }) 
       const data = await response.json();
       await reload();
       setMessage(`${data.inserted}건이 '검토중'으로 추가되었습니다.`);
+
+      // CS답변이 비어 있는 신규 행들은 AI 추천 답변을 자동 생성한다(동시 3개씩).
+      const listed = (await (await fetch("/api/claims", { cache: "no-store" })).json()).claims as ClaimItem[];
+      const needAuto = listed.filter((c) => !c.csAnswer && !c.aiSuggestedAnswer && c.status === "review");
+      if (needAuto.length > 0) {
+        setMessage(`CS답변이 비어있는 ${needAuto.length}건은 AI 답변을 자동 생성합니다...`);
+        let done = 0;
+        const queue = needAuto.slice();
+        async function worker() {
+          while (queue.length > 0) {
+            const claim = queue.shift();
+            if (!claim) return;
+            try {
+              await fetch(`/api/claims/${claim.id}/suggest`, { method: "POST" });
+            } catch {
+              // 한 건 실패해도 계속 진행
+            }
+            done += 1;
+            setMessage(`AI 자동 생성 중… ${done}/${needAuto.length}`);
+          }
+        }
+        await Promise.all([worker(), worker(), worker()]);
+        await reload();
+        setMessage(`${data.inserted}건 추가 · AI 자동 생성 ${needAuto.length}건 완료. 검토 후 라이브 전환해 주세요.`);
+      }
     } catch {
       setMessage("파일을 읽지 못했습니다. .csv 또는 .xlsx 파일인지 확인해 주세요.");
     } finally {

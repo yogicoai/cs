@@ -10,6 +10,21 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // 어드민 AI 분석(insight)은 별도로 OPENAI_MODEL(고성능)을 그대로 쓴다.
 const ANSWER_MODEL = process.env.OPENAI_ANSWER_MODEL ?? "gpt-5.2";
 
+// 메이트 상품 캐릭터/동물 이름 — 검색어에 포함되면 '메이트' 관련 FAQ를 우선 매칭한다.
+const MATE_NAMES = [
+  "일각고래", "고래", "우파루파", "도롱뇽", "테디", "크앙이", "유니크", "유니콘", "오스왈드",
+  "문어딜라일라", "돌고래", "버트랜드", "곰", "어니스트", "엘리", "오파", "부엉이", "조젯",
+  "기린", "디포", "하마", "모리슨", "원숭이", "데릭", "공룡", "디오고", "강아지", "케빈",
+  "코알라", "셸비", "판다", "펄", "펭귄", "지그프리트", "상어", "휴고", "고슴도치", "로미",
+  "너구리", "다니엘", "용", "야머스", "예티", "페스터스", "여우", "칼리스타", "고양이",
+  "코스모", "사울", "나무늘보",
+];
+
+function mentionsMate(query: string) {
+  const normalized = query.toLowerCase().replace(/\s+/g, "");
+  return MATE_NAMES.some((name) => normalized.includes(name));
+}
+
 const aiQuerySchema = z.object({
   channel: z.string().min(1),
   sessionId: z.string().optional(),
@@ -98,6 +113,7 @@ function scoreFaq(
   faq: Awaited<ReturnType<typeof getPublishedFaqs>>[number],
   category?: string,
   subcategory?: string,
+  isMateQuery?: boolean,
 ) {
   const queryTokens = tokenize(query);
   const querySubcategory = inferQuerySubcategory(query);
@@ -115,6 +131,11 @@ function scoreFaq(
   // 고객이 보던 세부 유형 안에서 우선 매칭 (막힌 지점의 정확도↑)
   if (subcategory && faq.subcategory === subcategory) {
     score += 4;
+  }
+
+  // 메이트 이름이 검색어에 있으면 '메이트'를 다루는 FAQ에 강한 보너스를 준다.
+  if (isMateQuery && /메이트/.test(fullText)) {
+    score += 20;
   }
 
   if (querySubcategory && faq.category === "A/S문의") {
@@ -313,8 +334,9 @@ export async function POST(request: Request) {
   const payload = aiQuerySchema.parse(await request.json());
   const [allFaqs, allClaims] = await Promise.all([getPublishedFaqs(), getLiveClaims()]);
   const faqs = filterFaqsByChannel(allFaqs, payload.channel);
+  const isMateQuery = mentionsMate(payload.query);
   const rankedFaqs = faqs
-    .map((faq) => ({ faq, score: scoreFaq(payload.query, faq, payload.category, payload.subcategory) }))
+    .map((faq) => ({ faq, score: scoreFaq(payload.query, faq, payload.category, payload.subcategory, isMateQuery) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);

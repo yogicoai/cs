@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { AdminFaqManager } from "@/components/AdminFaqManager";
+import { AdminPasswordPanel } from "@/components/AdminPasswordPanel";
 import { ClaimManager } from "@/components/ClaimManager";
 import { EngagementDashboard } from "@/components/EngagementDashboard";
 import { getAllClaims } from "@/lib/repositories/claimRepository";
@@ -28,6 +29,8 @@ export default async function AdminPage() {
       <AdminFaqManager initialFaqs={faqs} initialLiveClaims={liveClaims} />
 
       <ClaimManager initialClaims={claims} />
+
+      <AdminPasswordPanel />
     </main>
   );
 }
