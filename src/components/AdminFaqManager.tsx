@@ -332,7 +332,31 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
               AI 답변 받기
             </button>
           </form>
-          {aiAnswer && <div className="admin-ai-answer">{aiAnswer}</div>}
+          {aiAnswer && (
+            <button
+              type="button"
+              className="admin-ai-answer admin-ai-answer-click"
+              onClick={() => {
+                resetForm();
+                setForm({
+                  id: "",
+                  source: "faq",
+                  category: "",
+                  subcategory: "",
+                  question: aiQuestion,
+                  answer: aiAnswer,
+                  keywords: "",
+                  status: "published",
+                });
+                setMessage("AI 답변을 FAQ 폼으로 가져왔습니다. 카테고리/유형을 선택하고 저장하세요.");
+                document.getElementById("faq-edit-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              title="이 답변을 FAQ 폼으로 가져오기"
+            >
+              {aiAnswer}
+              <span className="admin-ai-answer-hint">↓ 클릭해서 이 답변을 FAQ로 추가</span>
+            </button>
+          )}
         </div>
         <form className="faq-form" onSubmit={submitFaq}>
           <label>

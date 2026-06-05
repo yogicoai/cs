@@ -2200,6 +2200,36 @@ body {
   color: #2c3a47;
 }
 
+/* AI 답변 박스를 클릭해 FAQ 폼으로 가져오기 (button 형태) */
+.admin-ai-answer-click {
+  width: 100%;
+  display: block;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: #2c3a47;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.admin-ai-answer-click:hover,
+.admin-ai-answer-click:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(0, 189, 212, 0.18);
+  background: #f8fcff;
+  outline: none;
+}
+
+.admin-ai-answer-hint {
+  display: block;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* admin: 고객 클레임 관리 */
 .claim-manager {
   margin-top: 22px;
@@ -2630,9 +2660,62 @@ body {
   font-size: 13px;
 }
 
-/* 어드민: 비밀번호 관리 패널 */
-.admin-password-panel {
-  margin-top: 22px;
+/* 어드민 헤더 우측 액션 묶음 */
+.admin-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 어드민 비밀번호 관리 모달 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 32, 42, 0.45);
+  padding: 20px;
+}
+
+.modal-card {
+  width: min(420px, 100%);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 32px 64px rgba(23, 32, 42, 0.25);
+  display: grid;
+  gap: 12px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-title svg {
+  color: var(--primary);
+}
+
+.modal-title h3 {
+  font-size: 17px;
+}
+
+.modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
 }
 
 .admin-password-desc {
