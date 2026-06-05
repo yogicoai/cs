@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, ChevronDown, Loader2, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { Bot, ChevronDown, Loader2, Pencil, Plus, Search, Send, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { ClaimItem } from "@/lib/repositories/claimRepository";
@@ -62,6 +62,26 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
   const [claimSectionOpen, setClaimSectionOpen] = useState(false);
   const [catPage, setCatPage] = useState<Record<string, number>>({});
   const PAGE_SIZE = 10;
+  const [faqSearch, setFaqSearch] = useState("");
+  const searchTerm = faqSearch.trim().toLowerCase();
+  const isSearching = searchTerm.length > 0;
+
+  function matchesSearch(faq: FaqItem) {
+    if (!isSearching) return true;
+    const haystacks = [faq.question, faq.answer, faq.keywords.join(" ")];
+    return haystacks.some((h) => h.toLowerCase().includes(searchTerm));
+  }
+
+  function answerSnippet(answer: string) {
+    if (!isSearching) return "";
+    const lower = answer.toLowerCase();
+    const i = lower.indexOf(searchTerm);
+    if (i < 0) return "";
+    const around = 40;
+    const start = Math.max(0, i - around);
+    const end = Math.min(answer.length, i + searchTerm.length + around);
+    return (start > 0 ? "…" : "") + answer.slice(start, end) + (end < answer.length ? "…" : "");
+  }
 
   function toggleCat(category: string) {
     setClaimSectionOpen(false);
@@ -508,6 +528,22 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
         <div className="panel-title">
           <h2>FAQ 목록</h2>
         </div>
+        <div className="faq-search">
+          <Search size={16} />
+          <input
+            value={faqSearch}
+            onChange={(event) => setFaqSearch(event.target.value)}
+            placeholder="질문·답변·키워드에서 검색"
+          />
+          {faqSearch && (
+            <button type="button" aria-label="검색 지우기" onClick={() => setFaqSearch("")}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        {isSearching && (
+          <p className="faq-search-meta">검색 결과 {faqs.filter(matchesSearch).length}건</p>
+        )}
         <div className="faq-cat-list">
           {liveClaims.length > 0 && (
             <div id="faq-claim-section" className="faq-cat-group faq-claim-group">
@@ -545,8 +581,10 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
             </div>
           )}
           {faqCategories.map((category) => {
-            const items = faqs.filter((faq) => faq.category === category);
-            const open = openCats.has(category);
+            const allItems = faqs.filter((faq) => faq.category === category);
+            const items = isSearching ? allItems.filter(matchesSearch) : allItems;
+            if (isSearching && items.length === 0) return null;
+            const open = isSearching ? true : openCats.has(category);
             const totalPages = Math.ceil(items.length / PAGE_SIZE);
             const page = Math.min(catPage[category] ?? 1, totalPages || 1);
             const pageItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -555,25 +593,31 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
                 <button className="faq-cat-toggle" type="button" onClick={() => toggleCat(category)} aria-expanded={open ? "true" : "false"}>
                   <ChevronDown size={16} className={open ? "" : "rot-collapsed"} />
                   <span className="faq-cat-name">{category}</span>
-                  <span className="faq-cat-count">{items.length}</span>
+                  <span className="faq-cat-count">{isSearching ? `${items.length}/${allItems.length}` : items.length}</span>
                 </button>
                 {open && (
                   <>
                     <div className="table">
-                      {pageItems.map((faq) => (
-                        <div className="table-row" key={faq.id}>
-                          <span>{faq.subcategory || "-"}</span>
-                          <span>{faq.question}</span>
-                          <span className="row-actions">
-                            <button aria-label="FAQ 수정" onClick={() => editFaq(faq)} type="button">
-                              <Pencil size={16} />
-                            </button>
-                            <button aria-label="FAQ 삭제" onClick={() => deleteFaq(faq.id)} type="button">
-                              <Trash2 size={16} />
-                            </button>
-                          </span>
-                        </div>
-                      ))}
+                      {pageItems.map((faq) => {
+                        const snippet = answerSnippet(faq.answer);
+                        return (
+                          <div className="table-row" key={faq.id}>
+                            <span>{faq.subcategory || "-"}</span>
+                            <span className="faq-row-text">
+                              <strong>{faq.question}</strong>
+                              {snippet && <em className="faq-row-snippet">답변: {snippet}</em>}
+                            </span>
+                            <span className="row-actions">
+                              <button aria-label="FAQ 수정" onClick={() => editFaq(faq)} type="button">
+                                <Pencil size={16} />
+                              </button>
+                              <button aria-label="FAQ 삭제" onClick={() => deleteFaq(faq.id)} type="button">
+                                <Trash2 size={16} />
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                     {totalPages > 1 && (
                       <div className="faq-pager">

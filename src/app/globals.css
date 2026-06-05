@@ -2821,6 +2821,72 @@ body {
   color: #ffffff;
 }
 
+/* FAQ 목록 검색 */
+.faq-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  min-height: 42px;
+}
+
+.faq-search svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.faq-search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+.faq-search input::placeholder {
+  color: #8a9aab;
+}
+
+.faq-search button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.faq-search-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+  padding-left: 4px;
+}
+
+.faq-row-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.faq-row-text strong {
+  font-weight: 600;
+}
+
+.faq-row-snippet {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 /* admin header 사용 가이드 링크 */
 .admin-header {
   display: flex;
