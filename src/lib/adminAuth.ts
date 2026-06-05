@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { AdminAuth } from "@/models/AdminAuth";
 import { AdminSession } from "@/models/AdminSession";
@@ -69,6 +70,14 @@ export async function isAuthed(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// 어드민 보호 API에서 사용하는 가드 — 인증 안 되어 있으면 401 응답을 반환, 인증되어 있으면 null.
+export async function requireAdmin(): Promise<NextResponse | null> {
+  if (await isAuthed()) {
+    return null;
+  }
+  return NextResponse.json({ error: "관리자 인증이 필요합니다." }, { status: 401 });
 }
 
 export async function clearSession(): Promise<void> {

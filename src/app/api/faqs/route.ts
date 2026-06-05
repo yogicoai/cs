@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
 import { Faq } from "@/models/Faq";
 
@@ -24,6 +25,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const payload = faqSchema.parse(await request.json());
   const faq = await Faq.create(payload);

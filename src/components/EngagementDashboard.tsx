@@ -2,7 +2,6 @@
 
 import {
   BarChart3,
-  Loader2,
   PhoneCall,
   RefreshCw,
   Search,
@@ -82,21 +81,6 @@ function formatBucket(dateIso: string, groupBy: GroupBy) {
   return `${month}/${day}`;
 }
 
-function InsightView({ text }: { text: string }) {
-  return (
-    <div className="insight-body">
-      {text.split("\n").map((line, index) => {
-        const key = `line-${index}`;
-        if (line.startsWith("## ")) return <h4 key={key}>{line.slice(3)}</h4>;
-        if (line.startsWith("# ")) return <h4 key={key}>{line.slice(2)}</h4>;
-        if (/^\s*[-*]\s+/.test(line)) return <li key={key}>{line.replace(/^\s*[-*]\s+/, "")}</li>;
-        if (/^\s*\d+\.\s+/.test(line)) return <li className="ordered" key={key}>{line.replace(/^\s*\d+\.\s+/, "")}</li>;
-        if (line.trim() === "") return <div className="insight-gap" key={key} />;
-        return <p key={key}>{line}</p>;
-      })}
-    </div>
-  );
-}
 
 function KeywordList({ items, empty }: { items: Array<{ query: string; count: number }>; empty: string }) {
   if (items.length === 0) return <p className="empty-state">{empty}</p>;
@@ -120,10 +104,6 @@ export function EngagementDashboard({ faqCount }: { faqCount: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [insight, setInsight] = useState("");
-  const [insightLoading, setInsightLoading] = useState(false);
-  const [insightError, setInsightError] = useState("");
-
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -141,28 +121,6 @@ export function EngagementDashboard({ faqCount }: { faqCount: number }) {
   useEffect(() => {
     void loadAnalytics();
   }, [loadAnalytics]);
-
-  async function requestInsight() {
-    setInsightLoading(true);
-    setInsightError("");
-    try {
-      const response = await fetch("/api/analytics/insight", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupBy, from, to }),
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        setInsightError(payload.error ?? "AI 분석에 실패했습니다.");
-        return;
-      }
-      setInsight(payload.insight as string);
-    } catch {
-      setInsightError("AI 분석 중 오류가 발생했습니다.");
-    } finally {
-      setInsightLoading(false);
-    }
-  }
 
   const summary = data?.summary;
   const trend = data?.trend ?? [];
@@ -290,21 +248,6 @@ export function EngagementDashboard({ faqCount }: { faqCount: number }) {
             </div>
           </div>
 
-          <div className="insight-panel">
-            <div className="insight-head">
-              <div className="panel-title">
-                <Sparkles size={18} />
-                <h3>AI 데이터 분석</h3>
-              </div>
-              <button className="insight-button" onClick={requestInsight} disabled={insightLoading} type="button">
-                {insightLoading ? <Loader2 size={16} className="spin-icon" /> : <Sparkles size={16} />}
-                {insightLoading ? "분석 중…" : "AI 분석 받기"}
-              </button>
-            </div>
-            <p className="insight-desc">선택한 기간({from} ~ {to}, {PERIODS.find((p) => p.key === groupBy)?.label}) 데이터를 GPT로 분석해 콜 감소 관점의 개선 포인트를 제안합니다.</p>
-            {insightError && <p className="insight-error">{insightError}</p>}
-            {insight && <InsightView text={insight} />}
-          </div>
         </>
       )}
     </section>

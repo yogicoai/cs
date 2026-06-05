@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { AdminFaqManager } from "@/components/AdminFaqManager";
+import { AdminInsightButton } from "@/components/AdminInsightButton";
 import { AdminPasswordButton } from "@/components/AdminPasswordButton";
 import { ClaimManager } from "@/components/ClaimManager";
 import { EngagementDashboard } from "@/components/EngagementDashboard";
@@ -23,6 +24,7 @@ export default async function AdminPage() {
             <BookOpen size={16} />
             사용 가이드
           </Link>
+          <AdminInsightButton />
           <AdminPasswordButton />
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
 import { Faq } from "@/models/Faq";
 import { FaqRevision } from "@/models/FaqRevision";
@@ -20,6 +21,8 @@ type RouteContext = {
 };
 
 export async function PUT(request: Request, context: RouteContext) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const { id } = await context.params;
   const payload = faqUpdateSchema.parse(await request.json());
@@ -47,6 +50,8 @@ export async function PUT(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const { id } = await context.params;
   const before = await Faq.findById(id).lean();

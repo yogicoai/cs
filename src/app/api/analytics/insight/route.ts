@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/adminAuth";
 import {
   getEngagementAnalytics,
   normalizeDateRange,
@@ -53,6 +54,8 @@ ${data.trend.map((t) => `- ${t.date.slice(0, 10)}: 방문 ${t.visit}, 열람 ${t
 }
 
 export async function POST(request: Request) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const body = insightSchema.parse(await request.json().catch(() => ({})));
   const groupBy = normalizeGroupBy(body.groupBy ?? null);
   const days = normalizeDays(body.days != null ? String(body.days) : null, groupBy);

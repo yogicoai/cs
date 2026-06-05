@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
 import { Claim } from "@/models/Claim";
 import { invalidateLiveClaims } from "@/lib/repositories/claimRepository";
@@ -19,6 +20,8 @@ const updateSchema = z.object({
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const { id } = await context.params;
   const payload = updateSchema.parse(await request.json());
@@ -33,6 +36,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const { id } = await context.params;
   const claim = await Claim.findByIdAndDelete(id);

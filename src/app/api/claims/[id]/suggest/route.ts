@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
 import { extractOutputText } from "@/lib/openai";
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
@@ -51,6 +52,8 @@ function relevantFaqs(
 }
 
 export async function POST(_request: Request, context: RouteContext) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   await connectDB();
   const { id } = await context.params;
   const claim = await Claim.findById(id);

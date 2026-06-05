@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import {
   getEngagementAnalytics,
   normalizeDateRange,
@@ -8,6 +9,8 @@ import {
 } from "@/lib/analytics";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const params = request.nextUrl.searchParams;
   const groupBy = normalizeGroupBy(params.get("groupBy"));
   const days = normalizeDays(params.get("days"), groupBy);
