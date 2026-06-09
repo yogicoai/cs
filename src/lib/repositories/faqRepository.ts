@@ -44,10 +44,6 @@ export async function getPublishedFaqs(): Promise<FaqItem[]> {
     await connectDB();
     const docs = await Faq.find({ status: "published" }).sort({ category: 1, question: 1 }).lean();
 
-    if (docs.length === 0) {
-      return getSampleFaqs();
-    }
-
     const data = docs.map((doc) => toFaqItem(doc as Parameters<typeof toFaqItem>[0]));
     publishedCache = { data, at: Date.now() };
     return data;
@@ -60,10 +56,6 @@ export async function getAdminFaqs(): Promise<FaqItem[]> {
   try {
     await connectDB();
     const docs = await Faq.find({ status: { $ne: "archived" } }).sort({ updatedAt: -1 }).lean();
-
-    if (docs.length === 0) {
-      return getSampleFaqs();
-    }
 
     return docs.map((doc) => toFaqItem(doc as Parameters<typeof toFaqItem>[0]));
   } catch {

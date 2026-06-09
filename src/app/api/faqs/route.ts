@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
+import { invalidatePublishedFaqs } from "@/lib/repositories/faqRepository";
 import { Faq } from "@/models/Faq";
 
 const faqSchema = z.object({
@@ -30,5 +31,6 @@ export async function POST(request: Request) {
   await connectDB();
   const payload = faqSchema.parse(await request.json());
   const faq = await Faq.create(payload);
+  invalidatePublishedFaqs();
   return NextResponse.json({ faq }, { status: 201 });
 }

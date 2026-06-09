@@ -5,6 +5,8 @@ import { getLiveClaimsAsFaqs } from "@/lib/repositories/claimRepository";
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
 import { filterFaqsByChannel } from "@/lib/faqVisibility";
 
+export const dynamic = "force-dynamic";
+
 type GuidePageProps = {
   params: Promise<{
     channel: string;

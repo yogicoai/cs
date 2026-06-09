@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
+import { invalidatePublishedFaqs } from "@/lib/repositories/faqRepository";
 import { Faq } from "@/models/Faq";
 import { FaqRevision } from "@/models/FaqRevision";
 
@@ -46,6 +47,7 @@ export async function PUT(request: Request, context: RouteContext) {
     changeReason: "admin_update",
   });
 
+  invalidatePublishedFaqs();
   return NextResponse.json({ faq });
 }
 
@@ -74,5 +76,6 @@ export async function DELETE(_request: Request, context: RouteContext) {
     changeReason: "admin_archive",
   });
 
+  invalidatePublishedFaqs();
   return NextResponse.json({ faq });
 }
