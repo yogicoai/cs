@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
@@ -48,6 +49,8 @@ export async function PUT(request: Request, context: RouteContext) {
   });
 
   invalidatePublishedFaqs();
+  revalidatePath("/guide/[channel]", "page");
+  revalidatePath("/guide/[channel]/answer/[faqId]", "page");
   return NextResponse.json({ faq });
 }
 
@@ -77,5 +80,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   });
 
   invalidatePublishedFaqs();
+  revalidatePath("/guide/[channel]", "page");
+  revalidatePath("/guide/[channel]/answer/[faqId]", "page");
   return NextResponse.json({ faq });
 }

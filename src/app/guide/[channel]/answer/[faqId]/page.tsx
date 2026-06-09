@@ -6,6 +6,8 @@ import { RichAnswer } from "@/components/RichAnswer";
 import { getChannel } from "@/lib/repositories/channelRepository";
 import { getFaqById } from "@/lib/repositories/faqRepository";
 
+export const dynamic = "force-dynamic";
+
 type AnswerPageProps = {
   params: Promise<{
     channel: string;

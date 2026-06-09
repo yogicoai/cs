@@ -72,16 +72,10 @@ export async function getFaqById(id: string): Promise<FaqItem | null> {
       return toFaqItem(doc as Parameters<typeof toFaqItem>[0]);
     }
 
-    // 일반 FAQ에 없으면 라이브 클레임에서 같은 ID를 찾아 FAQ 형태로 반환한다.
-    const { getLiveClaimsAsFaqs } = await import("@/lib/repositories/claimRepository");
-    const claimFaq = (await getLiveClaimsAsFaqs()).find((c) => c.id === id);
-    if (claimFaq) {
-      return claimFaq;
-    }
   } catch {
     const sampleFaq = getSampleFaqs().find((faq) => faq.id === id);
     return sampleFaq ?? null;
   }
 
-  return getSampleFaqs().find((faq) => faq.id === id) ?? null;
+  return null;
 }

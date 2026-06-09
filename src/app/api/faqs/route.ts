@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db";
@@ -32,5 +33,6 @@ export async function POST(request: Request) {
   const payload = faqSchema.parse(await request.json());
   const faq = await Faq.create(payload);
   invalidatePublishedFaqs();
+  revalidatePath("/guide/[channel]", "page");
   return NextResponse.json({ faq }, { status: 201 });
 }
