@@ -65,6 +65,48 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
   const [faqSearch, setFaqSearch] = useState("");
   const searchTerm = faqSearch.trim().toLowerCase();
   const isSearching = searchTerm.length > 0;
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [categoryDraft, setCategoryDraft] = useState("");
+  const [renamingCategory, setRenamingCategory] = useState(false);
+
+  async function saveCategoryRename(oldName: string) {
+    const newName = categoryDraft.trim();
+    if (!newName) {
+      setEditingCategoryName("");
+      return;
+    }
+    if (newName === oldName) {
+      setEditingCategoryName("");
+      setCategoryDraft("");
+      return;
+    }
+    if (!window.confirm(`'${oldName}' 카테고리를 '${newName}' 으로 변경합니다.\n해당 카테고리의 모든 FAQ와 고객 클레임이 일괄 변경됩니다. 진행할까요?`)) {
+      return;
+    }
+    setRenamingCategory(true);
+    try {
+      const response = await fetch("/api/faqs/categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: oldName, to: newName }),
+      });
+      if (!response.ok) {
+        setMessage("카테고리 변경에 실패했습니다.");
+        return;
+      }
+      const data = await response.json();
+      setFaqs((current) => current.map((f) => (f.category === oldName ? { ...f, category: newName } : f)));
+      setLiveClaims((current) => current.map((c) => (c.category === oldName ? { ...c, category: newName } : c)));
+      window.dispatchEvent(new Event("cs:claim-live-changed"));
+      setMessage(`'${oldName}' → '${newName}' 변경 완료 (FAQ ${data.faqsUpdated}건, 클레임 ${data.claimsUpdated}건)`);
+      setEditingCategoryName("");
+      setCategoryDraft("");
+    } catch {
+      setMessage("카테고리 변경 중 오류가 발생했습니다.");
+    } finally {
+      setRenamingCategory(false);
+    }
+  }
 
   function matchesSearch(faq: FaqItem) {
     if (!isSearching) return true;
@@ -588,13 +630,50 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
             const totalPages = Math.ceil(items.length / PAGE_SIZE);
             const page = Math.min(catPage[category] ?? 1, totalPages || 1);
             const pageItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+            const isEditingCat = editingCategoryName === category;
             return (
               <div className="faq-cat-group" key={category}>
-                <button className="faq-cat-toggle" type="button" onClick={() => toggleCat(category)} aria-expanded={open ? "true" : "false"}>
-                  <ChevronDown size={16} className={open ? "" : "rot-collapsed"} />
-                  <span className="faq-cat-name">{category}</span>
-                  <span className="faq-cat-count">{isSearching ? `${items.length}/${allItems.length}` : items.length}</span>
-                </button>
+                <div className="faq-cat-header">
+                  {isEditingCat ? (
+                    <div className="faq-cat-edit">
+                      <input
+                        aria-label="새 카테고리 이름"
+                        placeholder="새 카테고리 이름"
+                        value={categoryDraft}
+                        onChange={(e) => setCategoryDraft(e.target.value)}
+                        autoFocus
+                        disabled={renamingCategory}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void saveCategoryRename(category);
+                          if (e.key === "Escape") { setEditingCategoryName(""); setCategoryDraft(""); }
+                        }}
+                      />
+                      <button type="button" onClick={() => void saveCategoryRename(category)} disabled={renamingCategory}>
+                        {renamingCategory ? <Loader2 size={14} className="spin-icon" /> : null}
+                        저장
+                      </button>
+                      <button type="button" onClick={() => { setEditingCategoryName(""); setCategoryDraft(""); }} disabled={renamingCategory}>
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button className="faq-cat-toggle" type="button" onClick={() => toggleCat(category)} aria-expanded={open ? "true" : "false"}>
+                        <ChevronDown size={16} className={open ? "" : "rot-collapsed"} />
+                        <span className="faq-cat-name">{category}</span>
+                        <span className="faq-cat-count">{isSearching ? `${items.length}/${allItems.length}` : items.length}</span>
+                      </button>
+                      <button
+                        className="faq-cat-edit-btn"
+                        type="button"
+                        aria-label="카테고리명 수정"
+                        onClick={() => { setEditingCategoryName(category); setCategoryDraft(category); }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
                 {open && (
                   <>
                     <div className="table">

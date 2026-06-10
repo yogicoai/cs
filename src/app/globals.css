@@ -2506,6 +2506,81 @@ body {
   overflow: hidden;
 }
 
+/* 카테고리 헤더 (토글 + 편집 아이콘) */
+.faq-cat-header {
+  display: flex;
+  align-items: stretch;
+}
+
+.faq-cat-header .faq-cat-toggle {
+  flex: 1;
+}
+
+.faq-cat-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: #f8fbfe;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.faq-cat-edit-btn:hover {
+  color: var(--primary-dark);
+  background: #eef4f9;
+}
+
+/* 카테고리명 인라인 편집 */
+.faq-cat-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #f8fbfe;
+}
+
+.faq-cat-edit input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  background: #ffffff;
+  color: var(--foreground);
+}
+
+.faq-cat-edit button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.faq-cat-edit button:first-of-type {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.faq-cat-edit button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .faq-cat-toggle {
   display: flex;
   align-items: center;
