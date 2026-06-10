@@ -68,6 +68,67 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [categoryDraft, setCategoryDraft] = useState("");
   const [renamingCategory, setRenamingCategory] = useState(false);
+  const [editingSubFaqId, setEditingSubFaqId] = useState("");
+  const [subDraft, setSubDraft] = useState("");
+  const [subOriginal, setSubOriginal] = useState<{ category: string; subcategory: string }>({ category: "", subcategory: "" });
+  const [renamingSub, setRenamingSub] = useState(false);
+
+  function startEditSubcategory(faq: FaqItem) {
+    setEditingSubFaqId(faq.id);
+    setSubDraft(faq.subcategory ?? "");
+    setSubOriginal({ category: faq.category, subcategory: faq.subcategory ?? "" });
+  }
+
+  function cancelEditSubcategory() {
+    setEditingSubFaqId("");
+    setSubDraft("");
+  }
+
+  async function saveSubcategoryRename() {
+    const newName = subDraft.trim();
+    if (newName === subOriginal.subcategory) {
+      cancelEditSubcategory();
+      return;
+    }
+    const affected = faqs.filter(
+      (f) => f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory,
+    ).length;
+    const fromLabel = subOriginal.subcategory || "(빈 유형)";
+    const toLabel = newName || "(빈 유형)";
+    if (!window.confirm(`'${subOriginal.category}' 카테고리의 '${fromLabel}' 문의 유형을 '${toLabel}' 으로 변경합니다.\n${affected}건이 일괄 변경됩니다. 진행할까요?`)) {
+      return;
+    }
+    setRenamingSub(true);
+    try {
+      const response = await fetch("/api/faqs/subcategories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: subOriginal.category, from: subOriginal.subcategory, to: newName }),
+      });
+      if (!response.ok) {
+        setMessage("문의 유형 변경에 실패했습니다.");
+        return;
+      }
+      const data = await response.json();
+      setFaqs((current) => current.map((f) =>
+        f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory
+          ? { ...f, subcategory: newName }
+          : f,
+      ));
+      setLiveClaims((current) => current.map((c) =>
+        c.category === subOriginal.category && (c.subcategory ?? "") === subOriginal.subcategory
+          ? { ...c, subcategory: newName }
+          : c,
+      ));
+      window.dispatchEvent(new Event("cs:claim-live-changed"));
+      setMessage(`'${fromLabel}' → '${toLabel}' 변경 완료 (FAQ ${data.faqsUpdated}건, 클레임 ${data.claimsUpdated}건)`);
+      cancelEditSubcategory();
+    } catch {
+      setMessage("문의 유형 변경 중 오류가 발생했습니다.");
+    } finally {
+      setRenamingSub(false);
+    }
+  }
 
   async function saveCategoryRename(oldName: string) {
     const newName = categoryDraft.trim();
@@ -679,13 +740,60 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
                     <div className="table">
                       {pageItems.map((faq) => {
                         const snippet = answerSnippet(faq.answer);
+                        const isEditingSub = editingSubFaqId === faq.id;
                         return (
                           <div className="table-row" key={faq.id}>
-                            <span>{faq.subcategory || "-"}</span>
-                            <span className="faq-row-text">
-                              <strong>{faq.question}</strong>
-                              {snippet && <em className="faq-row-snippet">답변: {snippet}</em>}
-                            </span>
+                            {isEditingSub ? (
+                              <span className="faq-subcat-editing">
+                                <input
+                                  aria-label="새 문의 유형"
+                                  placeholder="새 문의 유형 (비우면 유형 없음)"
+                                  value={subDraft}
+                                  onChange={(e) => setSubDraft(e.target.value)}
+                                  autoFocus
+                                  disabled={renamingSub}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") void saveSubcategoryRename();
+                                    if (e.key === "Escape") cancelEditSubcategory();
+                                  }}
+                                />
+                                <button type="button" onClick={() => void saveSubcategoryRename()} disabled={renamingSub}>
+                                  {renamingSub ? <Loader2 size={14} className="spin-icon" /> : null}
+                                  저장
+                                </button>
+                                <button type="button" onClick={cancelEditSubcategory} disabled={renamingSub}>
+                                  취소
+                                </button>
+                              </span>
+                            ) : (
+                              <>
+                                <span>
+                                  {faq.subcategory ? (
+                                    <button
+                                      className="faq-subcat-btn"
+                                      type="button"
+                                      onClick={() => startEditSubcategory(faq)}
+                                      title="클릭해서 문의 유형명 일괄 변경"
+                                    >
+                                      {faq.subcategory}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="faq-subcat-btn faq-subcat-empty"
+                                      type="button"
+                                      onClick={() => startEditSubcategory(faq)}
+                                      title="클릭해서 문의 유형 추가"
+                                    >
+                                      -
+                                    </button>
+                                  )}
+                                </span>
+                                <span className="faq-row-text">
+                                  <strong>{faq.question}</strong>
+                                  {snippet && <em className="faq-row-snippet">답변: {snippet}</em>}
+                                </span>
+                              </>
+                            )}
                             <span className="row-actions">
                               <button aria-label="FAQ 수정" onClick={() => editFaq(faq)} type="button">
                                 <Pencil size={16} />

@@ -2581,6 +2581,80 @@ body {
   cursor: not-allowed;
 }
 
+/* 문의 유형(subcategory) 인라인 편집 */
+.faq-subcat-btn {
+  display: inline-block;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faq-subcat-btn:hover,
+.faq-subcat-btn:focus-visible {
+  background: #eef4f9;
+  color: var(--primary-dark);
+  outline: none;
+}
+
+.faq-subcat-empty {
+  color: var(--muted);
+}
+
+.faq-subcat-editing {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.faq-subcat-editing input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  background: #ffffff;
+  color: var(--foreground);
+}
+
+.faq-subcat-editing button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.faq-subcat-editing button:first-of-type {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.faq-subcat-editing button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .faq-cat-toggle {
   display: flex;
   align-items: center;
