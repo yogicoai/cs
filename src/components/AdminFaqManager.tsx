@@ -70,13 +70,13 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
   const [renamingCategory, setRenamingCategory] = useState(false);
   const [editingSubFaqId, setEditingSubFaqId] = useState("");
   const [subDraft, setSubDraft] = useState("");
-  const [subOriginal, setSubOriginal] = useState<{ category: string; subcategory: string }>({ category: "", subcategory: "" });
+  const [subOriginal, setSubOriginal] = useState<{ category: string; subcategory: string; faqId: string }>({ category: "", subcategory: "", faqId: "" });
   const [renamingSub, setRenamingSub] = useState(false);
 
   function startEditSubcategory(faq: FaqItem) {
     setEditingSubFaqId(faq.id);
     setSubDraft(faq.subcategory ?? "");
-    setSubOriginal({ category: faq.category, subcategory: faq.subcategory ?? "" });
+    setSubOriginal({ category: faq.category, subcategory: faq.subcategory ?? "", faqId: faq.id });
   }
 
   function cancelEditSubcategory() {
@@ -90,37 +90,53 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
       cancelEditSubcategory();
       return;
     }
-    const affected = faqs.filter(
-      (f) => f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory,
-    ).length;
+    const isSingleMode = subOriginal.subcategory === "";
+    const affected = isSingleMode
+      ? 1
+      : faqs.filter(
+          (f) => f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory,
+        ).length;
     const fromLabel = subOriginal.subcategory || "(빈 유형)";
     const toLabel = newName || "(빈 유형)";
-    if (!window.confirm(`'${subOriginal.category}' 카테고리의 '${fromLabel}' 문의 유형을 '${toLabel}' 으로 변경합니다.\n${affected}건이 일괄 변경됩니다. 진행할까요?`)) {
-      return;
-    }
+    const confirmMsg = isSingleMode
+      ? `'${subOriginal.category}' 카테고리의 이 FAQ에 '${toLabel}' 유형을 부여합니다. 진행할까요?`
+      : `'${subOriginal.category}' 카테고리의 '${fromLabel}' 문의 유형을 '${toLabel}' 으로 변경합니다.\n${affected}건이 일괄 변경됩니다. 진행할까요?`;
+    if (!window.confirm(confirmMsg)) return;
     setRenamingSub(true);
     try {
       const response = await fetch("/api/faqs/subcategories", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: subOriginal.category, from: subOriginal.subcategory, to: newName }),
+        body: JSON.stringify({
+          category: subOriginal.category,
+          from: subOriginal.subcategory,
+          to: newName,
+          faqId: subOriginal.faqId,
+        }),
       });
       if (!response.ok) {
-        setMessage("문의 유형 변경에 실패했습니다.");
+        const errBody = await response.json().catch(() => null);
+        const errMsg = errBody?.error || `상태 ${response.status}`;
+        setMessage(`문의 유형 변경에 실패했습니다 — ${errMsg}`);
+        console.error("[saveSubcategoryRename]", response.status, errBody);
         return;
       }
       const data = await response.json();
-      setFaqs((current) => current.map((f) =>
-        f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory
-          ? { ...f, subcategory: newName }
-          : f,
-      ));
-      setLiveClaims((current) => current.map((c) =>
-        c.category === subOriginal.category && (c.subcategory ?? "") === subOriginal.subcategory
-          ? { ...c, subcategory: newName }
-          : c,
-      ));
-      window.dispatchEvent(new Event("cs:claim-live-changed"));
+      if (isSingleMode) {
+        setFaqs((current) => current.map((f) => (f.id === subOriginal.faqId ? { ...f, subcategory: newName } : f)));
+      } else {
+        setFaqs((current) => current.map((f) =>
+          f.category === subOriginal.category && (f.subcategory ?? "") === subOriginal.subcategory
+            ? { ...f, subcategory: newName }
+            : f,
+        ));
+        setLiveClaims((current) => current.map((c) =>
+          c.category === subOriginal.category && (c.subcategory ?? "") === subOriginal.subcategory
+            ? { ...c, subcategory: newName }
+            : c,
+        ));
+        window.dispatchEvent(new Event("cs:claim-live-changed"));
+      }
       setMessage(`'${fromLabel}' → '${toLabel}' 변경 완료 (FAQ ${data.faqsUpdated}건, 클레임 ${data.claimsUpdated}건)`);
       cancelEditSubcategory();
     } catch {
