@@ -98,7 +98,7 @@ function KeywordList({ items, empty }: { items: Array<{ query: string; count: nu
 
 export function EngagementDashboard({ faqCount }: { faqCount: number }) {
   const [groupBy, setGroupBy] = useState<GroupBy>("day");
-  const [from, setFrom] = useState(() => ymd(new Date(Date.now() - 29 * 86400000)));
+  const [from, setFrom] = useState(() => ymd(new Date()));
   const [to, setTo] = useState(() => ymd(new Date()));
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);

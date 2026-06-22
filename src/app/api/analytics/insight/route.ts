@@ -8,15 +8,18 @@ import {
   normalizeDays,
   normalizeGroupBy,
 } from "@/lib/analytics";
+import { getAdminFaqs } from "@/lib/repositories/faqRepository";
+import { getAllClaims } from "@/lib/repositories/claimRepository";
 
-// 어드민 AI 데이터 분석은 Anthropic Claude Haiku 4.5 로 호출한다.
-// Haiku 4.5 는 현재 활성 모델 중 가장 저렴하고 응답이 빠르며, 짧은 마크다운 요약에 적합하다.
-// 주의: Haiku 4.5 는 output_config.effort 와 adaptive thinking 을 지원하지 않으므로
-// 그 파라미터들을 보내면 400 이 난다 — 보내지 않는다.
+// 어드민 AI 데이터 분석: 사용자가 자유 질문을 입력하면, 서버가 DB 컨텍스트
+// (참여도 분석 + FAQ 목록 + 최근 클레임)를 모아 Claude Haiku 4.5 에 전달한다.
+// Haiku 4.5 는 output_config.effort 와 adaptive thinking 을 지원하지 않으므로
+// 그 파라미터를 보내지 않는다.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 
 const insightSchema = z.object({
+  question: z.string().trim().min(1).max(2000),
   groupBy: z.string().optional(),
   days: z.number().optional(),
   from: z.string().optional(),
@@ -24,63 +27,95 @@ const insightSchema = z.object({
   channel: z.string().optional(),
 });
 
-const SYSTEM_PROMPT = `당신은 Yogibo 고객센터의 데이터 분석가입니다. 이 앱의 목적은 'CS 전화 콜 진입 시 고객이 앱에서 스스로 답을 찾아 통화를 줄이는 것'이며, 가장 좋은 결과는 전화 연결 없이 해결되는 것입니다. 주어진 이용 데이터를 바탕으로 콜 감소 관점에서 한국어로 분석하세요. 데이터에 근거해서만 말하고, 수치가 적으면 '표본이 적다'고 솔직히 밝히세요. 반드시 아래 형식의 마크다운으로 간결하게 답하세요:
+const SYSTEM_PROMPT = `당신은 Yogibo 고객센터의 데이터 분석가입니다.
 
-## 핵심 요약
-- (3~5개 불릿)
+[목적]
+이 앱은 'CS 전화 콜 진입 시 고객이 앱에서 스스로 답을 찾아 통화를 줄이는 것'이 목적이며, 가장 좋은 결과는 전화 연결 없이 해결되는 것입니다.
 
-## 콜을 유발하는 약점
-- (검색 실패 키워드, 낮은 만족도, 전화 클릭 등 근거와 함께)
+[작업]
+사용자가 던지는 질문에 대해, 이어서 전달되는 'DB 컨텍스트' 안의 사실만 사용해서 한국어 마크다운으로 답하세요.
 
-## 우선 개선 액션
-1. (효과 큰 순서대로 3~5개, 구체적으로)
+[규칙]
+- 컨텍스트에 근거가 없는 추측·일반론은 하지 말 것. 모르면 "데이터에 근거가 부족하다"고 명시.
+- 수치를 인용할 때는 그 수치가 어떤 지표인지 한 줄로 같이 말할 것.
+- 표본이 적은 구간은 표본 크기를 함께 적고 신뢰도가 낮다고 언급할 것.
+- 행동 제안을 할 때는 어떤 데이터 근거에서 나왔는지 같이 적을 것.
+- 출력은 마크다운(헤딩 ##, 불릿 -, 번호 1.)을 활용해 간결하게 구성하되, 형식은 질문 성격에 맞게 자율적으로 선택할 것.`;
 
-## 추세 코멘트
-- (기간별 변화 한두 줄)`;
+function summarizeContext(
+  analytics: Awaited<ReturnType<typeof getEngagementAnalytics>>,
+  faqs: Awaited<ReturnType<typeof getAdminFaqs>>,
+  claims: Awaited<ReturnType<typeof getAllClaims>>,
+) {
+  const periodLabel = { day: "일별", week: "주별", month: "월별" }[analytics.range.groupBy];
+  const s = analytics.summary;
 
-function buildPrompt(data: Awaited<ReturnType<typeof getEngagementAnalytics>>) {
-  const periodLabel = { day: "일별", week: "주별", month: "월별" }[data.range.groupBy];
-  const s = data.summary;
+  const faqLines = faqs
+    .slice(0, 200)
+    .map((f) => `- [${f.category}${f.subcategory ? ` > ${f.subcategory}` : ""}] ${f.question}`)
+    .join("\n");
+  const faqTrunc = faqs.length > 200 ? `\n... (총 ${faqs.length}건 중 상위 200개만 표시)` : "";
 
-  return `다음은 Yogibo CS 셀프 상담 앱의 이용 데이터입니다.
-기간: ${data.range.since.slice(0, 10)} ~ ${data.range.until.slice(0, 10)} (${periodLabel} 집계)
+  const liveClaims = claims.filter((c) => c.status === "live");
+  const reviewClaims = claims.filter((c) => c.status === "review");
+  const recentClaims = claims.slice(0, 50);
+  const claimLines = recentClaims
+    .map((c) => {
+      const sit = c.situation.replace(/\s+/g, " ").slice(0, 80);
+      return `- [${c.status}] [${c.category || "미분류"}${c.subcategory ? ` > ${c.subcategory}` : ""}] ${sit}`;
+    })
+    .join("\n");
 
-[요약]
-- 방문(앱 진입): ${s.visits} / 세션: ${s.sessions}
-- 질문·답변 열람: ${s.questionViews}
-- AI 직접 질문: ${s.aiQueries} (검색 결과 없음: ${s.noResults})
-- "해결됐어요" 클릭: ${s.resolved}
-- 상담 연결 클릭: 총 ${s.contactClicks} (카카오 ${s.kakaoClicks} / 전화 ${s.phoneClicks})
-- 만족도(좋아요 비율): ${s.satisfactionRate}% (좋아요 ${s.feedbackPositive} / 아쉬워요 ${s.feedbackNegative})
-- 자가해결률(세션 중 상담 미연결): ${s.deflectionRate}%
-- 해결 전환율(세션 중 '해결됐어요'): ${s.resolutionRate}%
+  return `[참여도 요약] (${analytics.range.since.slice(0, 10)} ~ ${analytics.range.until.slice(0, 10)}, ${periodLabel})
+- 방문 ${s.visits} / 세션 ${s.sessions}
+- 질문 열람 ${s.questionViews}
+- AI 직접 질문 ${s.aiQueries} (결과 없음 ${s.noResults})
+- 해결됐어요 ${s.resolved}
+- 상담 클릭 ${s.contactClicks} (카카오 ${s.kakaoClicks} / 전화 ${s.phoneClicks})
+- 만족도 ${s.satisfactionRate}% (좋아요 ${s.feedbackPositive} / 아쉬워요 ${s.feedbackNegative})
+- 자가해결률 ${s.deflectionRate}% / 해결 전환율 ${s.resolutionRate}%
 
 [채널별]
-${data.byChannel.map((c) => `- ${c.channel}: 방문 ${c.visits}, 상담클릭 ${c.contactClicks}, 만족도 ${c.satisfactionRate}%`).join("\n") || "- 데이터 없음"}
+${analytics.byChannel.map((c) => `- ${c.channel}: 방문 ${c.visits}, 상담클릭 ${c.contactClicks}, 만족도 ${c.satisfactionRate}%`).join("\n") || "- 데이터 없음"}
 
-[검색 결과 없음 키워드 (FAQ 공백 후보)]
-${data.topNoResults.map((n, i) => `${i + 1}. "${n.query}" (${n.count}회)`).join("\n") || "- 없음"}
+[검색 결과 없음 키워드]
+${analytics.topNoResults.map((n, i) => `${i + 1}. "${n.query}" (${n.count}회)`).join("\n") || "- 없음"}
 
-[전체 인기 검색어 (수요)]
-${data.topSearchKeywords.map((n, i) => `${i + 1}. "${n.query}" (${n.count}회)`).join("\n") || "- 없음"}
+[전체 인기 검색어]
+${analytics.topSearchKeywords.map((n, i) => `${i + 1}. "${n.query}" (${n.count}회)`).join("\n") || "- 없음"}
 
 [많이 본 질문]
-${data.topQuestions.map((q, i) => `${i + 1}. [${q.category}] ${q.question} (${q.views}회)`).join("\n") || "- 없음"}
+${analytics.topQuestions.map((q, i) => `${i + 1}. [${q.category}] ${q.question} (${q.views}회)`).join("\n") || "- 없음"}
 
 [${periodLabel} 추세]
-${data.trend.map((t) => `- ${t.date.slice(0, 10)}: 방문 ${t.visit}, 열람 ${t.question_view}, AI ${t.ai_query}, 해결 ${t.resolved}, 상담클릭 ${t.contact_click}`).join("\n") || "- 없음"}`;
+${analytics.trend.map((t) => `- ${t.date.slice(0, 10)}: 방문 ${t.visit}, 열람 ${t.question_view}, AI ${t.ai_query}, 해결 ${t.resolved}, 상담클릭 ${t.contact_click}`).join("\n") || "- 없음"}
+
+[FAQ 목록 — 총 ${faqs.length}건]
+${faqLines || "- 없음"}${faqTrunc}
+
+[클레임 현황] 라이브 ${liveClaims.length} / 검토중 ${reviewClaims.length} / 전체 ${claims.length}
+[최근 클레임 ${recentClaims.length}건]
+${claimLines || "- 없음"}`;
 }
 
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
-  const body = insightSchema.parse(await request.json().catch(() => ({})));
-  const groupBy = normalizeGroupBy(body.groupBy ?? null);
-  const days = normalizeDays(body.days != null ? String(body.days) : null, groupBy);
-  const { since, until } = normalizeDateRange(body.from ?? null, body.to ?? null, days);
-  const channel = body.channel?.trim() || undefined;
 
-  const data = await getEngagementAnalytics({ groupBy, since, until, channel });
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "잘못된 요청 본문(JSON 파싱 실패)" }, { status: 400 });
+  }
+  const parsed = insightSchema.safeParse(payload);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "질문을 입력해주세요.", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
 
   if (!ANTHROPIC_API_KEY) {
     return NextResponse.json(
@@ -89,14 +124,31 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+  const groupBy = normalizeGroupBy(body.groupBy ?? null);
+  const days = normalizeDays(body.days != null ? String(body.days) : null, groupBy);
+  const { since, until } = normalizeDateRange(body.from ?? null, body.to ?? null, days);
+  const channel = body.channel?.trim() || undefined;
 
+  try {
+    const [analytics, faqs, claims] = await Promise.all([
+      getEngagementAnalytics({ groupBy, since, until, channel }),
+      getAdminFaqs(),
+      getAllClaims(),
+    ]);
+
+    const context = summarizeContext(analytics, faqs, claims);
+    const userMessage = `[DB 컨텍스트]
+${context}
+
+[질문]
+${body.question}`;
+
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1500,
+      max_tokens: 2000,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildPrompt(data) }],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     let insight = "";
@@ -109,7 +161,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "AI 응답이 비어 있습니다." }, { status: 502 });
     }
 
-    return NextResponse.json({ insight, range: data.range, summary: data.summary });
+    return NextResponse.json({
+      insight,
+      range: analytics.range,
+      summary: analytics.summary,
+      usage: response.usage,
+    });
   } catch (error) {
     console.error("[api/analytics/insight] Claude 호출 실패", error);
     if (error instanceof Anthropic.AuthenticationError) {
