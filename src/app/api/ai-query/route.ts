@@ -164,7 +164,7 @@ function scoreFaq(
 }
 
 function assessHandoffNeed(query: string, bestFaq?: Awaited<ReturnType<typeof getPublishedFaqs>>[number]) {
-  const source = `${query} ${bestFaq?.category ?? ""} ${bestFaq?.subcategory ?? ""} ${bestFaq?.question ?? ""}`;
+  const source = `${query} ${bestFaq?.question ?? ""}`;
 
   if (/사진|영상|기사|방문|하자\s*확인|불량\s*확인|제품\s*상태|접수하고|신청하고|A\/S\s*접수/i.test(source)) {
     return {
