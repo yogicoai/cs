@@ -206,23 +206,52 @@ async function logAiQuery(payload: z.infer<typeof aiQuerySchema>, hasResult: boo
   }
 }
 
-// 고객 클레임(사례) 매칭 점수. 상황·키워드 기준으로만 매칭한다.
-function scoreClaim(query: string, claim: ClaimItem) {
+// 고객 클레임(사례) 매칭 점수.
+function scoreClaim(
+  query: string,
+  claim: ClaimItem,
+  category?: string,
+  subcategory?: string,
+  isMateQuery?: boolean,
+) {
   const queryTokens = tokenize(query);
-  const text = normalizeText(`${claim.situation} ${claim.keywords.join(" ")}`);
+  const querySubcategory = inferQuerySubcategory(query);
+  const keywordText = claim.keywords.join(" ");
+  const situationText = normalizeText(claim.situation);
+  const titleText = normalizeText(`${claim.category} ${claim.subcategory ?? ""} ${claim.situation} ${keywordText}`);
+  const answerText = normalizeText(claim.answer);
+  const fullText = `${titleText} ${answerText}`;
   let score = 0;
 
+  if (category && claim.category === category) {
+    score += 2;
+  }
+  if (subcategory && claim.subcategory === subcategory) {
+    score += 4;
+  }
+  if (isMateQuery && /메이트/.test(fullText)) {
+    score += 20;
+  }
+  if (querySubcategory && claim.category === "A/S문의") {
+    score += claim.subcategory === querySubcategory ? 30 : -10;
+  }
+
   for (const token of queryTokens) {
-    if (hasTokenMatch(text, token)) {
+    if (hasTokenMatch(titleText, token)) {
       score += 5;
+    } else if (hasTokenMatch(answerText, token)) {
+      score += 2;
     }
   }
 
-  if (text.includes(normalizeText(query))) {
+  if (fullText.includes(normalizeText(query))) {
     score += 8;
   }
-  if (compactText(text).includes(compactText(query))) {
-    score += 12;
+
+  if (compactText(situationText).includes(compactText(query))) {
+    score += 30;
+  } else if (compactText(answerText).includes(compactText(query))) {
+    score += 6;
   }
 
   return score;
@@ -344,7 +373,7 @@ export async function POST(request: Request) {
   // 임계값 5: 한 토큰만 매치돼도(5점) 후보에 포함되도록 낮춤 — 클레임 답변이
   // 누락되는 사례가 잦아 진입 장벽을 완화한다.
   const rankedClaims = allClaims
-    .map((claim) => ({ claim, score: scoreClaim(payload.query, claim) }))
+    .map((claim) => ({ claim, score: scoreClaim(payload.query, claim, payload.category, payload.subcategory, isMateQuery) }))
     .filter((item) => item.score >= 5)
     .sort((a, b) => b.score - a.score)
     .slice(0, 2);
@@ -405,7 +434,7 @@ export async function POST(request: Request) {
     : "";
   const topClaimScore = rankedClaims[0]?.score ?? 0;
   const topFaqScore = bestMatch?.score ?? 0;
-  const claimFirst = topClaimScore > topFaqScore;
+  const claimFirst = topClaimScore >= topFaqScore;
   const grounding = (claimFirst ? [claimGrounding, faqGrounding] : [faqGrounding, claimGrounding])
     .filter(Boolean)
     .join("\n\n");
