@@ -26,7 +26,21 @@ export async function PATCH(request: Request, context: RouteContext) {
   await connectDB();
   const { id } = await context.params;
   const payload = updateSchema.parse(await request.json());
-  const claim = await Claim.findByIdAndUpdate(id, { $set: payload }, { new: true });
+
+  // 라이브로 전환되는데 최종답변(answer)이 비어있으면, 동일 PATCH 본문 또는 기존 문서의
+  // csAnswer 를 answer 로 자동 승계한다. 어드민이 CS답변만 적고 상태만 라이브로 바꾸는
+  // 흔한 케이스에서 AI 응답 근거가 빠지는 문제를 막는다.
+  const set: Record<string, unknown> = { ...payload };
+  if (payload.status === "live" && (!payload.answer || !payload.answer.trim())) {
+    const existing = await Claim.findById(id).lean<{ answer?: string; csAnswer?: string } | null>();
+    const currentAnswer = (payload.answer ?? existing?.answer ?? "").trim();
+    const fallbackCs = (payload.csAnswer ?? existing?.csAnswer ?? "").trim();
+    if (!currentAnswer && fallbackCs) {
+      set.answer = fallbackCs;
+    }
+  }
+
+  const claim = await Claim.findByIdAndUpdate(id, { $set: set }, { new: true });
 
   if (!claim) {
     return NextResponse.json({ message: "Claim not found" }, { status: 404 });

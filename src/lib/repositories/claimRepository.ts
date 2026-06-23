@@ -33,6 +33,9 @@ type ClaimDoc = {
 };
 
 function toClaimItem(doc: ClaimDoc): ClaimItem {
+  // 라이브용 effective answer: 최종답변(answer)이 있으면 그것을, 없으면 CS답변(csAnswer)을 사용.
+  // 어드민이 "최종 답변" 칸을 따로 채우지 않고 라이브로 전환해도 csAnswer 가 자동 승계되도록 한다.
+  const effectiveAnswer = doc.answer && doc.answer.trim() ? doc.answer : (doc.csAnswer ?? "");
   return {
     id: String(doc._id),
     category: doc.category ?? "",
@@ -41,7 +44,7 @@ function toClaimItem(doc: ClaimDoc): ClaimItem {
     keywords: doc.keywords ?? [],
     csAnswer: doc.csAnswer ?? "",
     aiSuggestedAnswer: doc.aiSuggestedAnswer ?? "",
-    answer: doc.answer ?? "",
+    answer: effectiveAnswer,
     status: doc.status ?? "review",
     note: doc.note ?? "",
     updatedAt: doc.updatedAt?.toISOString(),
@@ -79,8 +82,18 @@ export async function getLiveClaims(): Promise<ClaimItem[]> {
   }
   try {
     await connectDB();
-    const docs = (await Claim.find({ status: "live", answer: { $nin: ["", null] } }).lean()) as ClaimDoc[];
-    const data = docs.map(toClaimItem);
+    // 라이브 + (answer 또는 csAnswer 둘 중 하나라도 채워진 클레임)을 가져온다.
+    // toClaimItem 에서 effectiveAnswer 로 fallback 하므로, answer 만 보던 이전과 달리
+    // CS답변만 적고 라이브 전환한 케이스도 포함된다.
+    const docs = (await Claim.find({
+      status: "live",
+      $or: [
+        { answer: { $nin: ["", null] } },
+        { csAnswer: { $nin: ["", null] } },
+      ],
+    }).lean()) as ClaimDoc[];
+    // effectiveAnswer 가 빈 문자열로 떨어지는 잔존 케이스는 한 번 더 거른다.
+    const data = docs.map(toClaimItem).filter((c) => c.answer.trim().length > 0);
     liveCache = { data, at: Date.now() };
     return data;
   } catch {

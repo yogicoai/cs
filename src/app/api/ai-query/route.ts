@@ -341,9 +341,11 @@ export async function POST(request: Request) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
   // 클레임은 고객 탐색에는 절대 노출되지 않고, AI 응답 근거로만 쓰인다.
+  // 임계값 5: 한 토큰만 매치돼도(5점) 후보에 포함되도록 낮춤 — 클레임 답변이
+  // 누락되는 사례가 잦아 진입 장벽을 완화한다.
   const rankedClaims = allClaims
     .map((claim) => ({ claim, score: scoreClaim(payload.query, claim) }))
-    .filter((item) => item.score >= 6)
+    .filter((item) => item.score >= 5)
     .sort((a, b) => b.score - a.score)
     .slice(0, 2);
 
@@ -396,11 +398,21 @@ export async function POST(request: Request) {
   const prefix = handoff.level === "recommended" ? `${handoff.message}\n\n` : "";
 
   const faqGrounding = buildGroundingContext(rankedFaqs.slice(0, 2));
+  // 클레임 답변은 같은 상황에서 CS가 실제로 보낸 검증된 응대 — FAQ 와 동등한 근거로
+  // 취급해야 한다. 점수가 더 높으면 FAQ 보다 먼저 노출해 무게를 실어준다.
   const claimGrounding = rankedClaims.length
-    ? `[고객 사례 대응 — 위 내용으로 부족할 때 우선 참고]\n${buildClaimContext(rankedClaims.map((item) => item.claim))}`
+    ? `[검증된 CS 응대 사례 — 위 FAQ 와 동등한 근거. 상황이 거의 같으면 이 응대를 우선 인용해 동일한 정보를 빠짐없이 전달]\n${buildClaimContext(rankedClaims.map((item) => item.claim))}`
     : "";
-  const grounding = [faqGrounding, claimGrounding].filter(Boolean).join("\n\n");
-  const fallbackAnswer = bestMatch?.faq.answer ?? rankedClaims[0]?.claim.answer ?? "";
+  const topClaimScore = rankedClaims[0]?.score ?? 0;
+  const topFaqScore = bestMatch?.score ?? 0;
+  const claimFirst = topClaimScore > topFaqScore;
+  const grounding = (claimFirst ? [claimGrounding, faqGrounding] : [faqGrounding, claimGrounding])
+    .filter(Boolean)
+    .join("\n\n");
+  // 클레임 점수가 더 높으면 클레임 답변을 fallback 으로 우선 사용한다.
+  const fallbackAnswer = claimFirst
+    ? rankedClaims[0]?.claim.answer ?? bestMatch?.faq.answer ?? ""
+    : bestMatch?.faq.answer ?? rankedClaims[0]?.claim.answer ?? "";
 
   const stream = new ReadableStream({
     async start(controller) {
