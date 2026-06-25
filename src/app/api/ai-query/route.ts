@@ -5,10 +5,26 @@ import { getLiveClaims, type ClaimItem } from "@/lib/repositories/claimRepositor
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
 import { EventLog } from "@/models/EventLog";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-// 고객 답변은 응답 속도가 중요하므로 가벼운 모델을 사용한다(근거 기반 짧은 재서술).
-// 어드민 AI 분석(insight)은 별도로 OPENAI_MODEL(고성능)을 그대로 쓴다.
-const ANSWER_MODEL = process.env.OPENAI_ANSWER_MODEL ?? "gpt-5.2";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// 고객 답변은 응답 속도·비용이 중요하므로 가벼운 Claude 모델(Haiku)로 근거 기반 짧게 재서술.
+const ANSWER_MODEL = process.env.ANTHROPIC_ANSWER_MODEL ?? "claude-haiku-4-5";
+
+// 고객 대면 엔드포인트 레이트 리밋 (IP당 1분 N회) — 남용/비용 폭주 방지.
+// 주의: 인메모리라 단일 인스턴스 기준. 다중 인스턴스 배포면 Redis/DB로 승격 권장.
+const RATE_LIMIT = Number(process.env.AI_QUERY_RATE_LIMIT ?? 15);
+const RATE_WINDOW_MS = 60_000;
+const rateBuckets = new Map<string, number[]>();
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (rateBuckets.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (hits.length >= RATE_LIMIT) {
+    rateBuckets.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  rateBuckets.set(ip, hits);
+  return false;
+}
 
 // 메이트 상품 캐릭터/동물 이름 — 검색어에 포함되면 '메이트' 관련 FAQ를 우선 매칭한다.
 const MATE_NAMES = [
@@ -287,31 +303,38 @@ function buildGroundingContext(rankedFaqs: Array<{ faq: Awaited<ReturnType<typeo
 const ANSWER_INSTRUCTIONS =
   "당신은 Yogibo 고객센터 FAQ 안내 AI입니다. 반드시 제공된 FAQ 근거와 고객 사례 응대 안에서만 한국어로 답변하세요. 근거에 없는 내용은 추측하지 말고 상담 연결을 안내하세요. 서로 충돌하면 가장 직접적으로 관련된 근거를 우선하고, 불확실하면 단정하지 마세요. 가격, 일정, 정책은 근거에 적힌 내용만 말하세요. URL이 있으면 새로 만들거나 바꾸지 말고 원문 URL만 유지하세요. 핵심만 3문장 이내로, 군더더기 없이 친절하게 답하세요.";
 
-// OpenAI Responses 스트리밍을 받아 텍스트 델타를 콜백으로 흘려보낸다. 토큰이 하나라도 오면 true.
+// Claude(Anthropic) 스트리밍을 받아 텍스트 델타를 콜백으로 흘려보낸다. 토큰이 하나라도 오면 true.
+// 실패하면 false → 호출부에서 원본 FAQ 답변으로 폴백한다.
 async function streamGroundedAnswer(query: string, grounding: string, onDelta: (text: string) => void) {
-  if (!OPENAI_API_KEY) {
+  if (!ANTHROPIC_API_KEY) {
     return false;
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         model: ANSWER_MODEL,
+        max_tokens: 300,
+        system: ANSWER_INSTRUCTIONS,
         stream: true,
-        instructions: ANSWER_INSTRUCTIONS,
-        input: `고객 질문: ${query}
+        messages: [
+          {
+            role: "user",
+            content: `고객 질문: ${query}
 
 아래 근거만 사용하세요.
 
 ${grounding}
 
 답변 형식: 첫 문장에 질문에 대한 직접 답변, 필요하면 1~2문장만 보충. 인사말이나 맺음말은 넣지 마세요.`,
-        max_output_tokens: 300,
+          },
+        ],
       }),
     });
 
@@ -338,13 +361,21 @@ ${grounding}
           continue;
         }
         const data = trimmed.slice(5).trim();
-        if (!data || data === "[DONE]") {
+        if (!data) {
           continue;
         }
         try {
-          const event = JSON.parse(data) as { type?: string; delta?: string };
-          if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
-            onDelta(event.delta);
+          const event = JSON.parse(data) as {
+            type?: string;
+            delta?: { type?: string; text?: string };
+          };
+          // Claude 스트림: content_block_delta → delta.text_delta 의 text
+          if (
+            event.type === "content_block_delta" &&
+            event.delta?.type === "text_delta" &&
+            typeof event.delta.text === "string"
+          ) {
+            onDelta(event.delta.text);
             got = true;
           }
         } catch {
@@ -360,6 +391,27 @@ ${grounding}
 }
 
 export async function POST(request: Request) {
+  // 레이트 리밋 — 고객 대면 AI 남용/비용 폭주 방지 (IP당 1분 RATE_LIMIT회)
+  const ip = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  if (isRateLimited(ip)) {
+    const enc = new TextEncoder();
+    const ln = (obj: unknown) => enc.encode(`${JSON.stringify(obj)}\n`);
+    const body = new Blob([
+      ln({
+        type: "meta",
+        status: "rate_limited",
+        answer: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
+        sources: [],
+        suggestions: [],
+      }),
+      ln({ type: "done" }),
+    ]).stream();
+    return new Response(body, {
+      status: 429,
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
   const payload = aiQuerySchema.parse(await request.json());
   const [allFaqs, allClaims] = await Promise.all([getPublishedFaqs(), getLiveClaims()]);
   const faqs = filterFaqsByChannel(allFaqs, payload.channel);
