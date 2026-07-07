@@ -604,12 +604,15 @@ export function AdminFaqManager({ initialFaqs, initialLiveClaims = [] }: AdminFa
             />
           </label>
           <label>
-            키워드
+            유사 질문 · 키워드
             <input
               value={form.keywords}
               onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value }))}
-              placeholder="배송, 출고, 택배"
+              placeholder="예: 이상한 냄새가 나요, 비즈에서 약품 냄새, 새 제품 냄새"
             />
+            <span className="form-help">
+              쉼표(,)로 구분. 단어 키워드와 함께 <strong>예상되는 유사 질문</strong>을 통째로 적어두면, 사용자가 비슷한 문장으로 물어볼 때도 이 답변이 매칭됩니다.
+            </span>
           </label>
           {!isClaimEditing && (
             <label>

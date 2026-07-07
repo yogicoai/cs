@@ -176,6 +176,31 @@ function scoreFaq(
     score += 6;
   }
 
+  // 키워드 항목별 유사 질문 매칭:
+  // 어드민이 키워드 칸에 "이상한 냄새가 나요" 같은 유사 질문을 등록하면,
+  // 사용자 질문이 그 항목과 거의 같을 때 본문 질문 매칭에 준하는 강한 점수를 준다.
+  // 양방향 substring 으로 잡아 "냄새" → "이상한 냄새가 나요" 같은 부분 일치도 포함한다.
+  const compactQuery = compactText(query);
+  if (compactQuery.length >= 2) {
+    let bestKeywordBoost = 0;
+    for (const keyword of faq.keywords) {
+      const compactKw = compactText(keyword);
+      if (!compactKw) continue;
+      if (compactKw === compactQuery) {
+        bestKeywordBoost = Math.max(bestKeywordBoost, 28);
+        break;
+      }
+      if (compactKw.includes(compactQuery)) {
+        // 질문이 키워드 안에 통째로 들어감 — 가장 강한 신호
+        bestKeywordBoost = Math.max(bestKeywordBoost, 25);
+      } else if (compactQuery.includes(compactKw) && compactKw.length >= 4) {
+        // 키워드가 질문 안에 들어감(노이즈 방지를 위해 키워드 4자 이상에서만)
+        bestKeywordBoost = Math.max(bestKeywordBoost, 18);
+      }
+    }
+    score += bestKeywordBoost;
+  }
+
   return score;
 }
 

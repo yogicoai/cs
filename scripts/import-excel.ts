@@ -8,7 +8,7 @@ import { inferFaqSubcategory } from "../src/lib/faqGrouping";
 const DEFAULT_EXCEL_PATH = "file/chat.xlsx";
 const DEFAULT_KAKAO_URL = "https://pf.kakao.com/";
 const DEFAULT_PHONE_NUMBER = "02-557-0920";
-const DEFAULT_CHANNEL_SLUGS = ["chat", "ownmall", "marketplace", "29cm"];
+const DEFAULT_CHANNEL_SLUGS = ["chat", "ownmall", "29cm"];
 
 type CellValue = string | number | boolean | Date | null | undefined;
 

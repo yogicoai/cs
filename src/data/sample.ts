@@ -6,13 +6,6 @@ export const channels = {
     kakaoUrl: "https://pf.kakao.com/",
     phoneNumber: "1588-0000",
   },
-  marketplace: {
-    name: "외부몰",
-    greeting: "안녕하세요. 구매하신 몰 기준으로 자주 묻는 내용을 안내해 드립니다.",
-    closingMessage: "주문 정보 확인이 필요한 경우 구매하신 몰의 주문번호를 준비해 주세요.",
-    kakaoUrl: "https://pf.kakao.com/",
-    phoneNumber: "1588-0000",
-  },
 };
 
 export const faqs = [

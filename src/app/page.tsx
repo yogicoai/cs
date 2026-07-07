@@ -20,7 +20,6 @@ export default function Home() {
         <p>배송, 교환/환불, A/S 문의를 모바일에서 빠르게 확인하고 상담으로 이어갈 수 있습니다.</p>
         <div className="home-actions">
           <Link href="/guide/ownmall">자사몰 가이드 보기</Link>
-          <Link href="/guide/marketplace">외부몰 가이드 보기</Link>
           <Link href="/admin">어드민 보기</Link>
         </div>
       </section>

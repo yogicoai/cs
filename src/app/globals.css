@@ -199,6 +199,29 @@ button {
   font-size: 20px;
 }
 
+.direct-question .step-title h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.step-title h2 span.ai-accent {
+  color: #5cb4cc;
+  background: none;
+  display: inline;
+  width: auto;
+  height: auto;
+  padding: 0;
+  font-weight: inherit;
+}
+
+.step-title svg.ai-icon {
+  color: #5ebcd6;
+  width: 24px;
+  height: 24px;
+}
+
 .direct-question {
   display: grid;
   gap: 10px;
@@ -1310,54 +1333,58 @@ body {
 }
 
 .guide-header.compact {
-  grid-template-columns: 52px minmax(0, 1fr);
-  justify-items: stretch;
-  gap: 12px;
-  margin: 0 0 8px;
-  border: 1px solid rgba(0, 189, 212, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 10px 12px;
-  box-shadow: 0 10px 26px rgba(23, 32, 42, 0.06);
-  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 0 24px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
   text-align: left;
 }
 
 .guide-header.compact .guide-avatar {
-  grid-column: auto;
-  justify-self: start;
-  width: 52px;
-  height: 52px;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
   margin: 0;
-  box-shadow:
-    0 0 0 4px rgba(0, 189, 212, 0.12),
-    0 8px 16px rgba(0, 124, 140, 0.1);
+  box-shadow: none;
+  background: #ffffff;
 }
 
 .guide-header.compact .guide-avatar img {
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
 }
 
 .guide-header.compact .guide-copy {
-  grid-column: auto;
-  justify-self: stretch;
-  align-self: center;
-  max-width: none;
-  text-align: left;
+  flex: 0 1 auto;
 }
 
 .guide-header.compact h1 {
-  font-size: 17px;
+  font-size: 20px;
+  font-weight: 800;
   line-height: 1.25;
-  text-align: left;
+  color: #17202a;
 }
 
 .guide-header.compact p {
-  max-width: none;
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
+  color: #8196a8;
+}
+
+.guide-shell--ownmall .guide-header.compact {
+  background: transparent;
+  border: none;
+}
+
+.guide-shell--ownmall .guide-header.compact h1 {
   text-align: left;
 }
 
@@ -1367,10 +1394,10 @@ body {
 
 .step-panel {
   border: 0;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.96);
-  padding: 14px;
-  box-shadow: 0 14px 34px rgba(23, 32, 42, 0.09);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 24px 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
 }
 
 .direct-question {
@@ -1382,7 +1409,7 @@ body {
 }
 
 .direct-question .step-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   padding: 0 2px;
 }
 
@@ -1390,6 +1417,13 @@ body {
   color: #17202a;
   font-size: 18px;
   line-height: 1.3;
+}
+
+.direct-question .step-title h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .direct-question p,
@@ -1405,11 +1439,11 @@ body {
 }
 
 .search-field {
-  min-height: 54px;
+  min-height: 50px;
   margin-top: 0;
-  border: 1px solid #dbe6ec;
-  border-radius: 16px;
-  background: #f8fbfd;
+  border: none;
+  border-radius: 12px;
+  background: #eef1f5;
 }
 
 .search-field input {
@@ -1429,13 +1463,18 @@ body {
   box-shadow: 0 12px 22px rgba(23, 32, 42, 0.22);
 }
 
+.ai-question-form--inline button {
+  display: none;
+}
+
 .browse-block {
   margin-top: 20px;
 }
 
 .compact-title h2 {
-  color: #627384;
-  font-size: 13px;
+  color: #5ebcd6;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .option-list {
@@ -1443,13 +1482,13 @@ body {
 }
 
 .option {
-  min-height: 54px;
-  border: 1px solid #dce7ed;
-  border-radius: 16px;
+  min-height: 50px;
+  border: 1px solid #f0f2f5;
+  border-radius: 12px;
   background: #ffffff;
   color: #17202a;
-  padding: 13px 14px;
-  box-shadow: 0 6px 16px rgba(23, 32, 42, 0.04);
+  padding: 13px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .option.active {
@@ -3446,4 +3485,456 @@ body {
 
 .guide-metric svg {
   color: var(--primary);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   자사몰(ownmall) 채널 — Figma 스펙 적용
+   브랜드 시안: #5CB4CC  /  텍스트 다크: #33363F  /  보조 회색: #7C8086
+   카드 bg: #FAFAFA  /  보더: #C5D0D7  /  그림자: rgba(186,193,199,0.5)
+   ────────────────────────────────────────────────────────────────────────── */
+
+.guide-logo {
+  display: none;
+}
+
+.guide-shell--ownmall .guide-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 8px 0 18px;
+}
+
+.guide-shell--ownmall .guide-logo img {
+  width: auto;
+  height: 30px;
+  object-fit: contain;
+}
+
+.guide-shell--ownmall {
+  background: #f4f7fa;
+}
+
+body:has(.guide-shell--ownmall) {
+  background: #f4f7fa;
+}
+
+/* 헤더 카드: 좌측 아바타 + 우측 카피, 옅은 시안 틴트 */
+.guide-shell--ownmall .guide-header.compact {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid #dceaee;
+  border-radius: 22px;
+  background: #eaf2f5;
+  box-shadow: none;
+  margin-bottom: 18px;
+}
+
+.guide-shell--ownmall .guide-header.compact .guide-avatar {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #e8f8fc, #d2f0f7);
+  box-shadow:
+    0 0 0 5px rgba(92, 180, 204, 0.12),
+    0 8px 18px rgba(0, 124, 140, 0.1);
+}
+
+.guide-shell--ownmall .guide-header.compact .guide-avatar img {
+  width: 50px;
+  height: 50px;
+}
+
+.guide-shell--ownmall .guide-header.compact h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #33363f;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.guide-shell--ownmall .guide-header.compact p {
+  margin-top: 6px;
+  color: #7c8086;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+}
+
+/* 메인 컨텐츠 카드 (Rectangle 5): #FAFAFA, 상단 모서리 30px, 부드러운 그림자
+   수직 간격은 내부 요소들이 각자 책임지므로 step-panel 은 외곽 padding 만 잡는다. */
+.guide-shell--ownmall .step-panel {
+  padding: 28px 24px 36px;
+  border: 0;
+  border-radius: 30px 30px 0 0;
+  background: #fafafa;
+  box-shadow: 3px 3px 15px 0 rgba(186, 193, 199, 0.5);
+}
+
+/* AI 섹션: 카드 내부에 wrap 없음, 자체 마진도 없음 */
+.guide-shell--ownmall .direct-question {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  display: block;
+}
+
+/* 기본 .step-title 의 margin-bottom 12px 을 리셋해 흐름을 일관되게 만든다. */
+.guide-shell--ownmall .direct-question .step-title {
+  margin: 0 0 10px;
+}
+
+/* AI 헤딩: Pretendard 700 24px lh100% ls -2% */
+.guide-shell--ownmall .direct-question .step-title svg {
+  color: #5cb4cc;
+  flex-shrink: 0;
+}
+
+.guide-shell--ownmall .direct-question .step-title h2 {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #33363f;
+}
+
+.guide-shell--ownmall .direct-question .step-title h2 .ai-accent {
+  /* 모바일 .step-title span 규칙(font-size:13px, width/height 26px 등)이
+     이 span 까지 잡아서 'AI' 만 작게 보였던 문제를 해결한다. */
+  color: #5cb4cc;
+  display: inline;
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+.guide-shell--ownmall .direct-question > p {
+  color: #7c8086;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+  letter-spacing: -0.02em;
+}
+
+/* 검색 폼 자체는 마진을 갖지 않음 — 위는 description 의 margin-bottom 으로,
+   아래는 browse-block 의 margin-top 으로 일관되게 조절. */
+.guide-shell--ownmall .direct-question .ai-question-form {
+  margin: 0;
+}
+
+/* 검색 입력박스: 50px height, 둥근 모서리 */
+.guide-shell--ownmall .direct-question .search-field {
+  min-height: 50px;
+  border-radius: 15px;
+  border: 1px solid #c5d0d7;
+  background: #eef1f5;
+  padding: 0 18px;
+  box-shadow: none;
+}
+
+.guide-shell--ownmall .direct-question .search-field svg {
+  color: #7c8086;
+}
+
+.guide-shell--ownmall .direct-question .search-field input {
+  background: #eef1f5;
+  font-size: 14px;
+  color: #33363f;
+  letter-spacing: -0.02em;
+}
+
+.guide-shell--ownmall .direct-question .search-field input::placeholder {
+  color: #7c8086;
+}
+
+.guide-shell--ownmall .ai-question-form--inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.guide-shell--ownmall .ai-question-form--inline button {
+  width: 50px;
+  min-height: 50px;
+  border-radius: 15px;
+  background: #5cb4cc;
+}
+
+.guide-shell--ownmall .ai-question-form--inline button:disabled {
+  background: #c5d0d7;
+}
+
+/* "또는 문의 종류 선택" — 충분한 위 간격으로 섹션 구분이 명확하게 보이도록 */
+.guide-shell--ownmall .browse-block {
+  margin-top: 32px;
+  gap: 0;
+  display: block;
+}
+
+.guide-shell--ownmall .browse-block .compact-title {
+  margin: 0 0 14px;
+}
+
+.guide-shell--ownmall .browse-block .compact-title h2 {
+  color: #5cb4cc;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.guide-shell--ownmall .browse-block .option-list {
+  gap: 10px;
+}
+
+/* 카테고리 카드: 50px height, 15px radius, 13/17/13/33 padding, #FAFAFA bg */
+.guide-shell--ownmall .browse-block .option {
+  min-height: 50px;
+  height: 50px;
+  padding: 13px 17px 13px 33px;
+  border: 1px solid #e6ebef;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(186, 193, 199, 0.25);
+  font-size: 15px;
+  font-weight: 700;
+  color: #33363f;
+  letter-spacing: -0.02em;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.guide-shell--ownmall .browse-block .option:hover,
+.guide-shell--ownmall .browse-block .option:focus-visible {
+  border-color: rgba(92, 180, 204, 0.45);
+  background: #f8feff;
+  box-shadow: 0 6px 14px rgba(92, 180, 204, 0.15);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.guide-shell--ownmall .browse-block .option svg {
+  color: #7c8086;
+}
+
+.guide-shell--ownmall .browse-block .option.active {
+  border-color: #5cb4cc;
+  background: #edfaff;
+  color: #2e8a9e;
+}
+
+.guide-shell--ownmall .browse-block .option.active svg {
+  color: #5cb4cc;
+}
+
+/* 어드민 폼: 유사 질문 입력 도움말 */
+.form-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.form-help strong {
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Cafe24 배송문의 카드 UI
+   ────────────────────────────────────────────────────────────────────────── */
+
+.delivery-inquiry {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.delivery-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #33363f;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.delivery-head svg {
+  color: #5cb4cc;
+}
+
+.delivery-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.delivery-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.delivery-card {
+  border: 1px solid #e6ebef;
+  border-radius: 15px;
+  background: #ffffff;
+  padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(186, 193, 199, 0.25);
+}
+
+.delivery-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.delivery-order-id {
+  font-size: 13px;
+  font-weight: 700;
+  color: #33363f;
+}
+
+.delivery-order-date {
+  font-size: 12px;
+  color: #7c8086;
+}
+
+.delivery-order-items {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #33363f;
+  line-height: 1.45;
+}
+
+.delivery-shipment {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e6ebef;
+}
+
+.delivery-status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #e8f6fa;
+  color: #2e8a9e;
+  letter-spacing: -0.02em;
+}
+
+.delivery-tracking {
+  margin: 0;
+  font-size: 12px;
+  color: #7c8086;
+  letter-spacing: -0.02em;
+}
+
+.delivery-tracking strong {
+  color: #33363f;
+  font-weight: 700;
+}
+
+.delivery-tracking-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #5cb4cc;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.delivery-tracking-btn:hover {
+  background: #4aa4bd;
+}
+
+.delivery-no-shipment {
+  margin: 0;
+  font-size: 12px;
+  color: #7c8086;
+  font-style: italic;
+}
+
+.delivery-loading,
+.delivery-error,
+.delivery-empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border: 1px dashed #d8dde3;
+  border-radius: 15px;
+  text-align: center;
+  color: #7c8086;
+}
+
+.delivery-empty h3,
+.delivery-error strong {
+  margin: 0;
+  color: #33363f;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.delivery-empty p,
+.delivery-loading p,
+.delivery-error p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.delivery-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #eaf2f5;
+  color: #5cb4cc;
+}
+
+.delivery-login-btn,
+.delivery-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #5cb4cc;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.delivery-login-btn:hover,
+.delivery-retry-btn:hover {
+  background: #4aa4bd;
 }

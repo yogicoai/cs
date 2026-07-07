@@ -12,14 +12,21 @@ import {
   Phone,
   Search,
   Send,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DeliveryInquiry } from "@/components/DeliveryInquiry";
 import { RichAnswer } from "@/components/RichAnswer";
 import { getSessionId } from "@/lib/session";
 import type { FaqItem } from "@/lib/sample-data";
+
+// 자사몰(ownmall) 채널에서만 사용하는 가상 카테고리.
+// FAQ 목록에 존재하지 않으며, 카테고리 리스트 최상단에 강제 삽입되어
+// 클릭 시 cafe24 배송 조회 UI 를 띄운다.
+const DELIVERY_CATEGORY = "배송문의";
 
 type ChannelCopy = {
   name: string;
@@ -62,10 +69,19 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
   const [feedback, setFeedback] = useState<"positive" | "negative" | "">("");
   const [resolved, setResolved] = useState(false);
   const [questionFilter, setQuestionFilter] = useState("");
+  // cafe24 자사몰의 부모 페이지가 postMessage 로 넘겨주는 memberId.
+  // 배송문의 카테고리에서 사용되며, ownmall 채널일 때만 리스너를 켠다.
+  const [memberId, setMemberId] = useState("");
   const aiAnswerRef = useRef<HTMLDivElement>(null);
   const loggedNoResultFilters = useRef<Set<string>>(new Set());
 
-  const categories = useMemo(() => Array.from(new Set(faqs.map((faq) => faq.category))), [faqs]);
+  const isOwnmall = channel === "ownmall";
+  const rawCategories = useMemo(() => Array.from(new Set(faqs.map((faq) => faq.category))), [faqs]);
+  // 자사몰에서는 배송문의를 최상단에 강제 삽입 (FAQ 데이터에 없어도 노출)
+  const categories = useMemo(
+    () => (isOwnmall ? [DELIVERY_CATEGORY, ...rawCategories.filter((c) => c !== DELIVERY_CATEGORY)] : rawCategories),
+    [isOwnmall, rawCategories],
+  );
   const categoryFaqs = useMemo(() => faqs.filter((faq) => faq.category === category), [category, faqs]);
   const subcategories = useMemo(
     () => Array.from(new Set(categoryFaqs.map((faq) => faq.subcategory).filter(Boolean) as string[])),
@@ -111,6 +127,30 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
       body: JSON.stringify({ channel, sessionId: getSessionId(), eventType: "visit" }),
     });
   }, [channel]);
+
+  // 자사몰(ownmall) iframe embed 시, 부모(cafe24 mall) 로부터 로그인 회원 정보를 받는다.
+  // 부모에서 다음과 같이 전달:
+  //   iframe.contentWindow.postMessage({ type: "cs:member", memberId: "<mall member id>" }, "<iframe origin>")
+  // 로그아웃 시:
+  //   iframe.contentWindow.postMessage({ type: "cs:logout" }, "<iframe origin>")
+  useEffect(() => {
+    if (!isOwnmall || typeof window === "undefined") return;
+
+    function onMessage(event: MessageEvent) {
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "cs:member" && typeof data.memberId === "string") {
+        setMemberId(data.memberId.trim());
+      } else if (data.type === "cs:logout") {
+        setMemberId("");
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    // 부모에게 "준비됐다" 신호 — 부모는 이걸 받고 memberId 를 회신한다.
+    window.parent?.postMessage({ type: "cs:ready" }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [isOwnmall]);
 
   useEffect(() => {
     const queryText = questionFilter.trim();
@@ -303,7 +343,17 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
   }
 
   return (
-    <main className="guide-shell">
+    <main className={`guide-shell guide-shell--${channel}`}>
+      <div className="guide-logo">
+        <Image
+          src="https://yogibo.openhost.cafe24.com/web/img/icon/logo3_on.png"
+          alt="Yogibo"
+          width={104}
+          height={32}
+          priority
+          unoptimized
+        />
+      </div>
       <section className="guide-header compact">
         <div className="guide-avatar">
           <Image
@@ -333,17 +383,19 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           <div className="step-panel">
             <div className="direct-question">
               <div className="step-title">
-                <Bot size={20} />
-                <h2>AI에게 바로 질문하기</h2>
+                <img src="https://yogibo.openhost.com//web/img/star_icon.png" alt="" className="ai-icon" />
+                <h2>
+                  <span className="ai-accent">AI</span>에게 바로 질문하기
+                </h2>
               </div>
-              <p>키워드나 문장으로 직접 질문해 보세요. 등록된 FAQ 안에서 가장 가까운 답변을 찾아드립니다.</p>
+              <p>키워드나 문장으로 직접 질문해 보세요.<br/>등록된 FAQ 안에서 가장 가까운 답변을 찾아드립니다.</p>
               <form className="ai-question-form ai-question-form--inline" onSubmit={askAi}>
                 <label className="search-field">
                   <Search size={18} />
                   <input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="예: 비즈를 보충하고 싶어요"
+                    placeholder="예 : 비즈를 보충하고 싶어요"
                   />
                 </label>
                 <button disabled={query.trim().length < 2 || aiLoading} type="submit" aria-label="AI에게 직접 질문하기">
@@ -417,7 +469,19 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           </div>
         )}
 
-        {currentStep === "question" && (
+        {currentStep === "question" && category === DELIVERY_CATEGORY && (
+          <div className="step-panel">
+            <div className="selection-context">
+              <button onClick={resetGuide} type="button">{DELIVERY_CATEGORY}</button>
+            </div>
+            <div className="step-title">
+              <h2>배송 상태를 확인해 드릴게요</h2>
+            </div>
+            <DeliveryInquiry memberId={memberId} />
+          </div>
+        )}
+
+        {currentStep === "question" && category !== DELIVERY_CATEGORY && (
           <div className="step-panel">
           <div className="selection-context">
             <button onClick={resetGuide} type="button">{category}</button>

@@ -60,7 +60,6 @@ const PERIODS: Array<{ key: GroupBy; label: string }> = [
 
 const CHANNEL_LABELS: Record<string, string> = {
   ownmall: "자사몰",
-  marketplace: "외부몰",
   chat: "채팅상담",
   "29cm": "29CM",
 };
