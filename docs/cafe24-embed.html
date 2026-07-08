@@ -1,0 +1,108 @@
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Yogibo CS 셀프 가이드 — cafe24 자사몰 embed 스니펫
+     ───────────────────────────────────────────────────────────────────────────
+     이 블록을 cafe24 자사몰 스킨의 원하는 위치(예: 마이페이지, 고객센터 페이지,
+     또는 별도 게시판/HTML 모듈)에 그대로 붙여넣으세요.
+
+     동작:
+       1) cafe24 스토어프론트가 자동 주입하는 CAFE24API 로 로그인 회원 ID 조회
+          (yogiChat 과 동일한 APP_KEY 사용 — 별도 앱 등록 불필요)
+       2) iframe(cs-self-guide) 이 준비되면(cs:ready) memberId 를 postMessage 로 전달
+       3) SNS 로그인 지연 동기화 대비: 1초 간격 최대 6회 재시도
+       4) iframe 에서 "로그인 하러 가기"(cs:request-login) → 로그인 페이지로 이동
+       5) iframe 높이 자동조정(cs:height) — 콘텐츠 높이에 맞춰 iframe 이 늘어남(잘림/스크롤 없음)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div id="yogibo-cs-guide-wrap" style="max-width:480px;margin:0 auto;">
+  <iframe
+    id="yogibo-cs-guide"
+    src="https://cs-fawn-alpha.vercel.app/guide/ownmall"
+    title="Yogibo 고객센터 셀프 가이드"
+    style="width:100%;height:600px;border:0;display:block;background:#f4f7fa;transition:height .15s ease;"
+    scrolling="no"
+    allow="clipboard-write"
+  ></iframe>
+</div>
+
+<script>
+(function () {
+  // ── 설정 ──────────────────────────────────────────────────────────────
+  var IFRAME_ID     = 'yogibo-cs-guide';
+  var IFRAME_ORIGIN = 'https://cs-fawn-alpha.vercel.app'; // 배포 도메인과 일치해야 함
+  var CAFE24_APP_KEY = 'R4as6neTNyXXjVfpfUj9lE';          // yogiChat 과 동일
+  var LOGIN_BASE     = '/member/login.html';
+
+  var iframe = document.getElementById(IFRAME_ID);
+  if (!iframe) return;
+
+  var currentMemberId = '';   // 최신 회원 ID (없으면 빈 문자열 = 비로그인)
+  var childReady = false;     // iframe 이 cs:ready 를 보냈는지
+
+  // 자식(iframe)에게 회원 정보 전달
+  function pushMember() {
+    if (!childReady) return;
+    iframe.contentWindow.postMessage(
+      { type: currentMemberId ? 'cs:member' : 'cs:logout', memberId: currentMemberId },
+      IFRAME_ORIGIN
+    );
+  }
+
+  // cafe24 SDK 로 회원 ID 조회 (SDK 로드 지연 대비 폴링)
+  function initCafe24(attempt) {
+    attempt = attempt || 0;
+    if (typeof CAFE24API === 'undefined') {
+      if (attempt < 20) return setTimeout(function () { initCafe24(attempt + 1); }, 300);
+      console.warn('[yogibo-cs] CAFE24API 로드 실패 — 비로그인으로 진행');
+      return;
+    }
+    try {
+      CAFE24API.init(CAFE24_APP_KEY);
+
+      // 1) 즉시 1회 조회
+      CAFE24API.getMemberID(function (res) {
+        if (res && res !== currentMemberId) {
+          currentMemberId = res;
+          pushMember();
+        }
+      });
+
+      // 2) SNS 로그인 지연 동기화 대비: 1초 간격 최대 6회 재시도
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries++;
+        CAFE24API.getMemberID(function (res) {
+          if (res && res !== currentMemberId) {
+            currentMemberId = res;
+            pushMember();
+            clearInterval(timer);
+          }
+        });
+        if (tries >= 6) clearInterval(timer);
+      }, 1000);
+    } catch (e) {
+      console.warn('[yogibo-cs] CAFE24API 조회 오류:', e);
+    }
+  }
+
+  // iframe 으로부터 오는 메시지 처리
+  window.addEventListener('message', function (event) {
+    if (event.origin !== IFRAME_ORIGIN) return;
+    var data = event.data || {};
+
+    if (data.type === 'cs:ready') {
+      childReady = true;
+      pushMember();               // 준비되면 즉시 현재 회원 ID 전달
+    } else if (data.type === 'cs:height') {
+      // 콘텐츠 높이에 맞춰 iframe 높이 실시간 갱신 (잘림/내부 스크롤 방지)
+      var h = parseInt(data.height, 10);
+      if (h > 0) iframe.style.height = h + 'px';
+    } else if (data.type === 'cs:request-login') {
+      // "로그인 하러 가기" 클릭 → 로그인 후 이 페이지로 복귀
+      var here = window.location.pathname + window.location.search;
+      window.location.href = LOGIN_BASE + '?returnUrl=' + encodeURIComponent(here);
+    }
+  });
+
+  initCafe24();
+})();
+</script>

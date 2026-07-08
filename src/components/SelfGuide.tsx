@@ -152,6 +152,39 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
     return () => window.removeEventListener("message", onMessage);
   }, [isOwnmall]);
 
+  // iframe 높이 자동조정: 콘텐츠 실제 높이를 측정해 부모에게 알린다.
+  // 부모는 cs:height 를 받아 iframe.style.height 를 갱신 → 스크롤/잘림 없이 딱 맞게 늘어남.
+  useEffect(() => {
+    if (!isOwnmall || typeof window === "undefined") return;
+
+    let lastSent = 0;
+    const postHeight = () => {
+      const height = Math.ceil(
+        Math.max(
+          document.body?.scrollHeight ?? 0,
+          document.documentElement?.scrollHeight ?? 0,
+        ),
+      );
+      if (height > 0 && height !== lastSent) {
+        lastSent = height;
+        window.parent?.postMessage({ type: "cs:height", height }, "*");
+      }
+    };
+
+    postHeight();
+    const observer = new ResizeObserver(() => postHeight());
+    observer.observe(document.body);
+    // 이미지/폰트 늦은 로드로 높이가 바뀌는 경우 대비
+    window.addEventListener("load", postHeight);
+    const settleTimer = window.setTimeout(postHeight, 400);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("load", postHeight);
+      window.clearTimeout(settleTimer);
+    };
+  }, [isOwnmall]);
+
   useEffect(() => {
     const queryText = questionFilter.trim();
     if (queryText.length < 2 || visibleFaqs.length === 0 || displayedFaqs.length > 0) {
