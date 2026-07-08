@@ -3,6 +3,7 @@ import { BookOpen } from "lucide-react";
 import { AdminFaqManager } from "@/components/AdminFaqManager";
 import { AdminInsightButton } from "@/components/AdminInsightButton";
 import { AdminPasswordButton } from "@/components/AdminPasswordButton";
+import { UnansweredBadge } from "@/components/UnansweredBadge";
 import { ClaimManager } from "@/components/ClaimManager";
 import { EngagementDashboard } from "@/components/EngagementDashboard";
 import { getAllClaims } from "@/lib/repositories/claimRepository";
@@ -20,6 +21,7 @@ export default async function AdminPage() {
           <h1>상담 지표 운영관리</h1>
         </div>
         <div className="admin-header-actions">
+          <UnansweredBadge />
           <Link href="/admin/guide" className="guide-link">
             <BookOpen size={16} />
             사용 가이드

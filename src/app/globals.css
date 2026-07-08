@@ -2918,6 +2918,237 @@ body {
   filter: brightness(1.05);
 }
 
+/* ── 미답변 문의 배지 (헤더) + 모달 ─────────────────────────────────────── */
+.unanswered-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.unanswered-link:hover {
+  border-color: var(--primary);
+  background: #f6fbfd;
+}
+
+/* 미답변이 1건 이상이면 빨간색으로 주의 환기 */
+.unanswered-link.has-unanswered {
+  border-color: #f0b4b4;
+  background: #fff5f5;
+  color: #c0392b;
+}
+
+.unanswered-link.has-unanswered:hover {
+  background: #ffeaea;
+}
+
+.unanswered-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #d0d7de;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.unanswered-link.has-unanswered .unanswered-count {
+  background: #e74c3c;
+}
+
+.unanswered-modal {
+  width: min(620px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.unanswered-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unanswered-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 8px;
+}
+
+.unanswered-refresh:hover:not(:disabled) {
+  background: #eef4f9;
+  color: var(--primary-dark);
+}
+
+.unanswered-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.unanswered-error,
+.unanswered-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.unanswered-error {
+  color: #c0392b;
+}
+
+.unanswered-body {
+  display: grid;
+  gap: 14px;
+}
+
+.unanswered-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.unanswered-summary-total {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.unanswered-summary-split {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.unanswered-clear {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: #2e8a9e;
+  text-align: center;
+}
+
+.unanswered-clear p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.unanswered-section {
+  display: grid;
+  gap: 8px;
+}
+
+.unanswered-section-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.unanswered-section-head svg {
+  color: var(--primary);
+}
+
+.unanswered-suberr {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+  color: #c0392b;
+}
+
+.unanswered-group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.unanswered-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fbfe;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.unanswered-group-head span {
+  color: #c0392b;
+  font-weight: 800;
+}
+
+.unanswered-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.unanswered-list li {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.unanswered-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.unanswered-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.4;
+}
+
+.unanswered-item-date {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.unanswered-item-body {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.unanswered-item-writer {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9aa7b3;
+}
+
 /* AI 인사이트 모달 */
 .insight-modal {
   width: min(680px, 100%);
