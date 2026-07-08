@@ -3806,6 +3806,70 @@ body:has(.guide-shell--ownmall) {
   font-weight: 700;
 }
 
+/* 배송문의 화면 상단 "실시간 배송조회" CTA (일반 FAQ 목록 위에 노출) */
+.delivery-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #bfe4ec;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #eaf8fb, #dff2f7);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.delivery-cta:hover,
+.delivery-cta:focus-visible {
+  border-color: #5cb4cc;
+  box-shadow: 0 8px 20px rgba(92, 180, 204, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.delivery-cta-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #5cb4cc;
+  color: #ffffff;
+}
+
+.delivery-cta-copy {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.delivery-cta-copy strong {
+  font-size: 15px;
+  font-weight: 800;
+  color: #24313d;
+  letter-spacing: -0.02em;
+}
+
+.delivery-cta-copy em {
+  font-size: 12px;
+  font-style: normal;
+  color: #5f8894;
+  letter-spacing: -0.02em;
+}
+
+.delivery-cta > svg {
+  color: #7c8086;
+  flex-shrink: 0;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Cafe24 배송문의 카드 UI
    ────────────────────────────────────────────────────────────────────────── */

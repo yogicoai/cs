@@ -15,6 +15,7 @@ import {
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  Truck,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -72,6 +73,9 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
   // cafe24 자사몰의 부모 페이지가 postMessage 로 넘겨주는 memberId.
   // 배송문의 카테고리에서 사용되며, ownmall 채널일 때만 리스너를 켠다.
   const [memberId, setMemberId] = useState("");
+  // 배송문의 화면에서 "실시간 배송조회" CTA 를 눌렀을 때만 cafe24 조회 패널을 연다.
+  // (기본은 일반 FAQ 목록을 그대로 노출)
+  const [showDeliveryLookup, setShowDeliveryLookup] = useState(false);
   const aiAnswerRef = useRef<HTMLDivElement>(null);
   const loggedNoResultFilters = useRef<Set<string>>(new Set());
 
@@ -216,10 +220,17 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
     setResolved(false);
     setQuery("");
     setAiAnswer(null);
+    setShowDeliveryLookup(false);
     logEvent("category_view", { category: nextCategory });
   }
 
   function goBack() {
+    // 배송조회 패널이 열려 있으면 먼저 그걸 닫아 FAQ 목록으로 돌아간다.
+    if (showDeliveryLookup) {
+      setShowDeliveryLookup(false);
+      return;
+    }
+
     if (selectedFaqId) {
       setSelectedFaqId("");
       setFeedback("");
@@ -248,6 +259,7 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
     setAiAnswer(null);
     setFeedback("");
     setResolved(false);
+    setShowDeliveryLookup(false);
   }
 
   function chooseSubcategory(nextSubcategory: string) {
@@ -502,10 +514,11 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           </div>
         )}
 
-        {currentStep === "question" && category === DELIVERY_CATEGORY && (
+        {currentStep === "question" && isOwnmall && category === DELIVERY_CATEGORY && showDeliveryLookup && (
           <div className="step-panel">
             <div className="selection-context">
               <button onClick={resetGuide} type="button">{DELIVERY_CATEGORY}</button>
+              <button onClick={() => setShowDeliveryLookup(false)} type="button">실시간 배송조회</button>
             </div>
             <div className="step-title">
               <h2>배송 상태를 확인해 드릴게요</h2>
@@ -514,7 +527,7 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           </div>
         )}
 
-        {currentStep === "question" && category !== DELIVERY_CATEGORY && (
+        {currentStep === "question" && !(isOwnmall && category === DELIVERY_CATEGORY && showDeliveryLookup) && (
           <div className="step-panel">
           <div className="selection-context">
             <button onClick={resetGuide} type="button">{category}</button>
@@ -525,6 +538,25 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           </div>
           {category ? (
             <>
+              {isOwnmall && category === DELIVERY_CATEGORY && !subcategory && (
+                <button
+                  type="button"
+                  className="delivery-cta"
+                  onClick={() => {
+                    setShowDeliveryLookup(true);
+                    logEvent("delivery_lookup_open", { category });
+                  }}
+                >
+                  <span className="delivery-cta-icon">
+                    <Truck size={20} />
+                  </span>
+                  <span className="delivery-cta-copy">
+                    <strong>실시간 배송조회</strong>
+                    <em>내 주문의 배송 상태를 바로 확인하세요</em>
+                  </span>
+                  <ChevronRight size={18} />
+                </button>
+              )}
               {needsSubcategory && !subcategory && (
                 <div className="option-list">
                   {subcategories.map((item) => (
