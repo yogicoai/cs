@@ -24,17 +24,42 @@ type Props = {
   memberId: string;
 };
 
-function requestParentLogin() {
-  if (typeof window === "undefined") return;
-  // 부모 페이지(cafe24 mall) 로 로그인 요청 이벤트 전달.
-  // 부모에서 리스너를 만들어 /member/login.html 로 리다이렉트 하도록 안내한다.
-  window.parent?.postMessage({ type: "cs:request-login" }, "*");
-}
+// 자사몰(cafe24 mall) 로그인 페이지. 단독 접속(콜 URL 등) 사용자는 이 곳으로 직접 이동한다.
+// returnUrl 로 자사몰 주문내역(배송조회) 페이지를 지정 → 로그인 후 바로 배송 확인 가능.
+const MALL_ORIGIN = "https://yogibo.kr";
+const MALL_ORDER_LIST_PATH = "/myshop/order/list.html";
+const MALL_LOGIN_URL = `${MALL_ORIGIN}/member/login.html?returnUrl=${encodeURIComponent(
+  MALL_ORDER_LIST_PATH,
+)}`;
 
 export function DeliveryInquiry({ memberId }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<OrderWithShipment[] | null>(null);
+  // iframe 안(자사몰 embed) 인지 / 단독 접속(콜 URL) 인지 판별.
+  // SSR 중에는 window 가 없으므로 마운트 후 클라이언트에서 결정한다.
+  const [isEmbedded, setIsEmbedded] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      setIsEmbedded(window.self !== window.top);
+    } catch {
+      // cross-origin 접근 예외 시엔 embed 로 간주 (안전한 기본값)
+      setIsEmbedded(true);
+    }
+  }, []);
+
+  function handleLogin() {
+    if (typeof window === "undefined") return;
+    if (isEmbedded) {
+      // 자사몰 iframe embed → 부모(자사몰)에게 로그인 요청. 부모가 mall 안에서 로그인 이동.
+      window.parent?.postMessage({ type: "cs:request-login" }, "*");
+    } else {
+      // 단독 접속(콜 URL 등) → 부모가 없으므로 자사몰 로그인 페이지로 브라우저를 직접 이동.
+      window.location.href = MALL_LOGIN_URL;
+    }
+  }
 
   const load = useCallback(async () => {
     if (!memberId) return;
@@ -71,14 +96,22 @@ export function DeliveryInquiry({ memberId }: Props) {
           <AlertCircle size={28} />
         </div>
         <h3>로그인이 필요합니다</h3>
-        <p>
-          배송 정보를 확인하려면 자사몰에 로그인해 주세요.
-          <br />
-          로그인 후 다시 이 페이지로 돌아오시면 자동으로 조회됩니다.
-        </p>
-        <button type="button" className="delivery-login-btn" onClick={requestParentLogin}>
+        {isEmbedded ? (
+          <p>
+            배송 정보를 확인하려면 자사몰에 로그인해 주세요.
+            <br />
+            로그인 후 다시 이 페이지로 돌아오시면 자동으로 조회됩니다.
+          </p>
+        ) : (
+          <p>
+            배송 조회는 자사몰 로그인이 필요합니다.
+            <br />
+            아래 버튼을 누르면 자사몰(yogibo.kr)로 이동해 로그인 후 주문·배송 내역을 확인하실 수 있어요.
+          </p>
+        )}
+        <button type="button" className="delivery-login-btn" onClick={handleLogin}>
           <LogIn size={16} />
-          로그인 하러 가기
+          {isEmbedded ? "로그인 하러 가기" : "자사몰에서 배송 조회하기"}
         </button>
       </div>
     );
