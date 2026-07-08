@@ -3630,29 +3630,81 @@ body:has(.guide-shell--ownmall) {
   margin: 0;
 }
 
-/* 검색 입력박스: 50px height, 둥근 모서리 */
-.guide-shell--ownmall .direct-question .search-field {
+/* 검색 입력박스: 50px height, 둥근 모서리
+   1단계 AI 검색창(direct-question) 뿐 아니라 2단계 AI 검색창(ai-box)과
+   질문검색 필터(list-filter) 까지 자사몰 전역에서 동일한 스타일을 적용한다. */
+.guide-shell--ownmall .search-field {
   min-height: 50px;
   border-radius: 15px;
   border: 1px solid #c5d0d7;
   background: #eef1f5;
   padding: 0 18px;
+  margin-top: 0;
   box-shadow: none;
 }
 
-.guide-shell--ownmall .direct-question .search-field svg {
+.guide-shell--ownmall .search-field svg {
   color: #7c8086;
+  flex-shrink: 0;
 }
 
-.guide-shell--ownmall .direct-question .search-field input {
+.guide-shell--ownmall .search-field input {
   background: #eef1f5;
   font-size: 14px;
   color: #33363f;
   letter-spacing: -0.02em;
 }
 
-.guide-shell--ownmall .direct-question .search-field input::placeholder {
+.guide-shell--ownmall .search-field input::placeholder {
   color: #7c8086;
+}
+
+/* 2단계 "원하는 답변을 찾지 못하셨나요?" 박스 — 자사몰 톤에 맞춰 정리 */
+.guide-shell--ownmall .ai-box {
+  margin-top: 22px;
+  border-radius: 18px;
+  background: #f1f7f9;
+  padding: 16px;
+}
+
+.guide-shell--ownmall .ai-box .ai-title svg {
+  color: #5cb4cc;
+}
+
+.guide-shell--ownmall .ai-box .ai-title strong {
+  color: #33363f;
+  font-weight: 800;
+}
+
+.guide-shell--ownmall .ai-box > p {
+  color: #7c8086;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 8px 0 12px;
+  letter-spacing: -0.02em;
+}
+
+/* 질문검색 필터는 옵션 목록과 간격을 준다 */
+.guide-shell--ownmall .list-filter {
+  margin: 4px 0 12px;
+}
+
+/* 2단계 AI 폼: 입력창 + 아래 full-width 버튼 (세로 배치 유지) */
+.guide-shell--ownmall .ai-box .ai-question-form {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.guide-shell--ownmall .ai-box .ai-ask-button {
+  min-height: 50px;
+  border-radius: 15px;
+  background: #5cb4cc;
+  font-weight: 700;
+}
+
+.guide-shell--ownmall .ai-box .ai-ask-button:disabled {
+  background: #c5d0d7;
 }
 
 .guide-shell--ownmall .ai-question-form--inline {
