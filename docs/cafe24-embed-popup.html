@@ -1,0 +1,318 @@
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Yogibo 퀵메뉴 + CS 셀프 가이드 팝업 (통합본)
+     ───────────────────────────────────────────────────────────────────────────
+     · 기존 퀵메뉴(게임·카톡·상담·스크롤) 그대로 유지
+     · 상담 아이콘(#chat-open-btn) 클릭 → 가이드 iframe 팝업
+       - PC(≥801px):   우하단 400×750 팝업, 슬라이드인
+       - 모바일(≤800px): 풀스크린(100dvh), 아래→위 슬라이드업 + 배경 스크롤 잠금
+     · cafe24 회원ID 를 iframe 에 postMessage 전달 (배송조회용)
+     · lazy-load: 처음 열 때만 iframe 로드
+     교체: 기존 퀵메뉴 블록을 이 블록으로 통째 교체하세요.
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+
+<style type="text/css">
+    .fa-magnifying-glass:before, .fa-search:before{display:none;}
+
+    /* (A) 퀵메뉴 — 기존 유지 */
+    .quick_menu {
+        position: fixed;
+        right: 20px;
+        bottom: calc(30px + env(safe-area-inset-bottom)) !important;
+        z-index: 9000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        transform: translateZ(0);
+        will-change: transform;
+    }
+    .quick_item { width: 44px; height: 44px; cursor: pointer; position: relative; transition: transform 0.2s; }
+    .quick_item:hover { transform: scale(1.1); }
+    .quick_item img { width: 100%; height: 100%; display: block; object-fit: contain; }
+    .circle_bg { background: #fff; border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.15); overflow: hidden; }
+    .quick_dim { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 8999; display: none; }
+    .qucik_hide_menu { position: absolute; bottom: 0; right: 60px; display: none; width: max-content; }
+    .qucik_hide_menu ul { background: rgba(0,0,0,0.8); border-radius: 10px; padding: 10px 15px; list-style: none; margin: 0; }
+    .qucik_hide_menu li { color: #fff; font-size: 13px; padding: 5px 0; white-space: nowrap; cursor: pointer; }
+    .qucik_close { display: none; }
+    .scroll_rotate { transform: rotate(180deg); }
+    .scroll_rotate2 { transform: rotate(360deg); }
+
+    .quick_item .icon-link { position: relative; display: inline-flex; flex-direction: column; align-items: center; text-decoration: none; }
+    .speech-bubble {
+        position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+        background-color: #ffffff; color: #f06275; font-size: 16px; font-weight: 800;
+        padding: 6px 14px; border-radius: 20px; white-space: nowrap;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); z-index: 10;
+    }
+    .speech-bubble::after {
+        content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+        border-width: 7px; border-style: solid; border-color: #ffffff transparent transparent transparent;
+    }
+
+    /* (B) 가이드 팝업 컨테이너 — 챗봇과 동일 모션 */
+    .csg-container {
+        background: #f4f7fa;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        font-family: 'Pretendard', sans-serif;
+    }
+    /* [PC] 801px 이상 — 우하단 팝업 */
+    @media screen and (min-width: 801px) {
+        .csg-container {
+            position: fixed; bottom: 30px; right: 90px; z-index: 9999;
+            width: 400px; height: 750px; max-height: 85vh;
+            border-radius: 28px;
+            box-shadow: 0 30px 60px rgba(30, 120, 145, 0.18), 0 6px 20px rgba(88, 181, 202, 0.10);
+            transform: translateX(20px) scale(0.95);
+            transform-origin: bottom right;
+        }
+        .csg-container.show { opacity: 1; visibility: visible; transform: translateX(0) scale(1); }
+    }
+    /* [모바일] 800px 이하 — 풀스크린 슬라이드업 */
+    @media screen and (max-width: 800px) {
+        .csg-container {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999999;
+            width: 100%; height: 100%; height: 100dvh;
+            margin: 0; border: none; border-radius: 0;
+            transform: translateY(100%);
+        }
+        .csg-container.show { opacity: 1; visibility: visible; transform: translateY(0); }
+    }
+    .csg-iframe { width: 100%; height: 100%; border: 0; display: block; background: #f4f7fa; }
+
+    /* iframe 로딩 스피너 — iframe onload 시 .csg-loaded 로 숨김 */
+    .csg-loading {
+        position: absolute; inset: 0; z-index: 5;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        background: #f4f7fa;
+        transition: opacity 0.3s ease;
+    }
+    .csg-container.csg-loaded .csg-loading { opacity: 0; visibility: hidden; pointer-events: none; }
+    .csg-spinner {
+        width: 38px; height: 38px;
+        border: 3px solid #d5e3e8;
+        border-top-color: #5cb4cc;
+        border-radius: 50%;
+        animation: csg-spin 0.8s linear infinite;
+    }
+    .csg-loading p { margin: 0; font-size: 13px; color: #7c8086; font-family: 'Pretendard', sans-serif; }
+    @keyframes csg-spin { to { transform: rotate(360deg); } }
+
+    .csg-close {
+        position: absolute; top: 12px; right: 12px; z-index: 10;
+        width: 34px; height: 34px; border: 0; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9); color: #33363f;
+        font-size: 18px; line-height: 1; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    .csg-close:hover { background: #ffffff; }
+</style>
+
+<div id="quickquick">
+  <div class="quick_dim"></div>
+  <div class="quick_menu">
+
+    <div class="quick_item" style="overflow: visible;">
+      <a href="/md/game/game_01.html" class="icon-link" id="target_game_01">
+        <span class="speech-bubble">도전!</span>
+        <img src="/web/img/game_quick.svg" alt="게임아이콘" style="width:44px;">
+      </a>
+    </div>
+
+    <div class="quick_item circle_bg">
+      <a href="javascript:window.open('http://pf.kakao.com/_lxmZsxj/chat', 'lunachat', 'width=1024, height=800');">
+        <img src="/web/img/icon/main/kaka.png" alt="카톡상담" style="padding: 4px;">
+      </a>
+    </div>
+
+    <!-- 이 버튼 클릭 → 가이드 팝업 -->
+    <div id="chat-open-btn" class="quick_item circle_bg">
+      <img src="/web/img/icon/chat_icon.png" alt="AI 상담" style="padding: 0;">
+    </div>
+
+    <div class="quick_item">
+      <div><img src="/web/img/icon/quick/up.png" class="scroll_up" alt="위로" onclick="scrollPageToTop()"/></div>
+      <div><img src="/web/img/icon/quick/up.png" class="scroll_down" alt="아래로" onclick="scrollPageToBottom()" style="display:none;"/></div>
+    </div>
+  </div>
+
+  <!-- 가이드 팝업 컨테이너 -->
+  <div class="csg-container" id="csg-container" role="dialog" aria-modal="true" aria-label="고객센터 셀프 가이드">
+    <button type="button" class="csg-close" id="csg-close" aria-label="닫기">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <!-- 로딩 스피너 (iframe onload 시 숨김) -->
+    <div class="csg-loading" id="csg-loading">
+      <div class="csg-spinner"></div>
+      <p>불러오는 중…</p>
+    </div>
+    <!-- lazy-load: 처음 열 때만 src 채움 -->
+    <iframe
+      id="csg-iframe"
+      class="csg-iframe"
+      data-src="https://cs-fawn-alpha.vercel.app/guide/ownmall"
+      title="Yogibo 고객센터 셀프 가이드"
+      allow="clipboard-write"
+    ></iframe>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ── 가이드 팝업 설정 ──────────────────────────────────────────────────
+  var IFRAME_ORIGIN  = 'https://cs-fawn-alpha.vercel.app';
+  var CAFE24_APP_KEY = 'R4as6neTNyXXjVfpfUj9lE';
+  var LOGIN_BASE     = '/member/login.html';
+
+  var openBtn   = document.getElementById('chat-open-btn');
+  var container = document.getElementById('csg-container');
+  var closeBtn  = document.getElementById('csg-close');
+  var iframe    = document.getElementById('csg-iframe');
+
+  var currentMemberId = '';
+  var childReady = false;
+
+  function pushMember() {
+    if (!childReady) return;
+    iframe.contentWindow.postMessage(
+      { type: currentMemberId ? 'cs:member' : 'cs:logout', memberId: currentMemberId },
+      IFRAME_ORIGIN
+    );
+  }
+
+  function setMember(id) {
+    id = (id || '').trim ? (id || '').trim() : id;
+    if (!id || id === currentMemberId) return;
+    currentMemberId = id;
+    console.log('[csg] 회원ID 확인:', currentMemberId);
+    // 이미 iframe 이 열려 로드됐으면 즉시 postMessage 로 갱신
+    pushMember();
+  }
+
+  // cafe24 SDK 로 회원ID 조회. 작동 검증된 getCustomerInfo 우선, getMemberID 보조.
+  function fetchMemberOnce() {
+    if (typeof CAFE24API === 'undefined') return;
+    try {
+      if (typeof CAFE24API.getCustomerInfo === 'function') {
+        CAFE24API.getCustomerInfo(function (err, res) {
+          if (res && res.customer && res.customer.member_id) setMember(res.customer.member_id);
+        });
+      }
+      if (typeof CAFE24API.getMemberID === 'function') {
+        CAFE24API.getMemberID(function (res) {
+          if (res) setMember(res);
+        });
+      }
+    } catch (e) { /* noop */ }
+  }
+
+  function initCafe24(attempt) {
+    attempt = attempt || 0;
+    if (typeof CAFE24API === 'undefined') {
+      if (attempt < 20) return setTimeout(function () { initCafe24(attempt + 1); }, 300);
+      console.warn('[csg] CAFE24API 로드 실패 — 비로그인으로 진행');
+      return;
+    }
+    try { CAFE24API.init(CAFE24_APP_KEY); } catch (e) { /* 이미 init 됐을 수 있음 */ }
+    fetchMemberOnce();
+    // SNS 로그인 지연 동기화 대비: 1초 간격 최대 6회 재조회
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries++;
+      fetchMemberOnce();
+      if (currentMemberId || tries >= 6) clearInterval(timer);
+    }, 1000);
+  }
+
+  var scrollY = 0;
+  function lockScroll() {
+    if (window.innerWidth > 800) return;
+    scrollY = window.pageYOffset;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + scrollY + 'px';
+    document.body.style.width = '100%';
+  }
+  function unlockScroll() {
+    if (window.innerWidth > 800) return;
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('position');
+    document.body.style.removeProperty('top');
+    document.body.style.removeProperty('width');
+    window.scrollTo(0, scrollY);
+  }
+
+  // iframe 로드 완료 시 스피너 숨김
+  iframe.addEventListener('load', function () {
+    if (iframe.src) container.classList.add('csg-loaded');
+  });
+
+  window.csgOpen = function () {
+    // lazy-load: 최초 열 때만 iframe 로드. 이때 회원ID 를 URL(mid)로 심어 핸드셰이크 없이 확실히 전달.
+    if (!iframe.src && iframe.dataset.src) {
+      var src = iframe.dataset.src;
+      if (currentMemberId) {
+        src += (src.indexOf('?') === -1 ? '?' : '&') + 'mid=' + encodeURIComponent(currentMemberId);
+      }
+      iframe.src = src;
+    }
+    container.classList.add('show');
+    lockScroll();
+    pushMember(); // 이미 로드된 상태면 postMessage 로도 갱신
+  };
+  window.csgClose = function () {
+    container.classList.remove('show');
+    unlockScroll();
+  };
+  if (openBtn)  openBtn.addEventListener('click', window.csgOpen);
+  if (closeBtn) closeBtn.addEventListener('click', window.csgClose);
+
+  window.addEventListener('message', function (event) {
+    if (event.origin !== IFRAME_ORIGIN) return;
+    var data = event.data || {};
+    if (data.type === 'cs:ready') { childReady = true; pushMember(); }
+    else if (data.type === 'cs:request-login') {
+      var here = window.location.pathname + window.location.search;
+      window.location.href = LOGIN_BASE + '?returnUrl=' + encodeURIComponent(here);
+    }
+    // cs:height 는 고정 크기라 무시
+  });
+
+  initCafe24();
+
+  // ── 기존 퀵메뉴: 페이지 스크롤 토글 (jQuery) ─────────────────────────
+  window.scrollPageToTop = function () { if (window.jQuery) $('html, body').animate({ scrollTop: 0 }, 'slow'); };
+  window.scrollPageToBottom = function () { if (window.jQuery) $('html, body').animate({ scrollTop: $(document).height() - $(window).height() }, 'slow'); };
+
+  if (typeof jQuery !== 'undefined') {
+    $(document).ready(function () {
+      $('.scroll_up').click(function () {
+        $(this).hide().removeClass('scroll_rotate2');
+        $('.scroll_down').show().addClass('scroll_rotate');
+      });
+      $('.scroll_down').click(function () {
+        $(this).hide().removeClass('scroll_rotate');
+        $('.scroll_up').show().addClass('scroll_rotate2');
+      });
+      $('.quick_plus').click(function () {
+        $('.quick_dim, .qucik_hide_menu').fadeIn(200);
+        $('.quick_plus').hide();
+        $('.qucik_close').show();
+      });
+      $('.quick_dim, .qucik_close').click(function () {
+        $('.quick_dim, .qucik_hide_menu').fadeOut(200);
+        $('.quick_plus').show();
+        $('.qucik_close').hide();
+      });
+    });
+  }
+})();
+</script>

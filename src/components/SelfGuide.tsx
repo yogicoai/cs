@@ -132,11 +132,17 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
     });
   }, [channel]);
 
-  // 자사몰(ownmall) iframe embed 시, 부모(cafe24 mall) 로부터 로그인 회원 정보를 받는다.
-  // 부모에서 다음과 같이 전달:
-  //   iframe.contentWindow.postMessage({ type: "cs:member", memberId: "<mall member id>" }, "<iframe origin>")
-  // 로그아웃 시:
-  //   iframe.contentWindow.postMessage({ type: "cs:logout" }, "<iframe origin>")
+  // 자사몰 iframe embed 시 회원ID 를 받는 두 경로:
+  //  (1) URL 파라미터 mid — 부모가 iframe src 에 ?mid=<회원ID> 로 심어 전달 (가장 확실, 핸드셰이크 불필요)
+  //  (2) postMessage cs:member — 로그인이 늦게 확인되는 경우 동적 갱신
+  // ownmall 채널에서만 동작.
+  useEffect(() => {
+    if (!isOwnmall || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mid = (params.get("mid") || params.get("memberId") || "").trim();
+    if (mid) setMemberId(mid);
+  }, [isOwnmall]);
+
   useEffect(() => {
     if (!isOwnmall || typeof window === "undefined") return;
 
@@ -144,7 +150,8 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
       const data = event.data;
       if (!data || typeof data !== "object") return;
       if (data.type === "cs:member" && typeof data.memberId === "string") {
-        setMemberId(data.memberId.trim());
+        const next = data.memberId.trim();
+        if (next) setMemberId(next);
       } else if (data.type === "cs:logout") {
         setMemberId("");
       }
@@ -428,7 +435,7 @@ export function SelfGuide({ channel, channelCopy, faqs }: SelfGuideProps) {
           <div className="step-panel">
             <div className="direct-question">
               <div className="step-title">
-                <img src="https://yogibo.openhost.com//web/img/star_icon.png" alt="" className="ai-icon" />
+                <Sparkles size={20} className="ai-icon" />
                 <h2>
                   <span className="ai-accent">AI</span>에게 바로 질문하기
                 </h2>
