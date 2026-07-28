@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { filterFaqsByChannel } from "@/lib/faqVisibility";
+import { isBlockedIp } from "@/lib/ipBlock";
 import { getLiveClaims, type ClaimItem } from "@/lib/repositories/claimRepository";
 import { getPublishedFaqs } from "@/lib/repositories/faqRepository";
 import { EventLog } from "@/models/EventLog";
@@ -460,13 +461,16 @@ export async function POST(request: Request) {
   const hasConfidentAnswer = hasConfidentFaq || rankedClaims.length > 0;
   const handoff = assessHandoffNeed(payload.query, bestMatch?.faq);
 
-  await logAiQuery(payload, hasConfidentAnswer, {
-    subcategory: payload.subcategory ?? "",
-    matchedFaqIds: rankedFaqs.map((item) => item.faq.id),
-    matchedClaimIds: rankedClaims.map((item) => item.claim.id),
-    topScore: bestMatch?.score ?? 0,
-    handoffLevel: handoff.level,
-  });
+  // 차단 IP(회사 IP 등)는 답변은 정상 제공하되 통계 기록만 생략한다.
+  if (!isBlockedIp(ip)) {
+    await logAiQuery(payload, hasConfidentAnswer, {
+      subcategory: payload.subcategory ?? "",
+      matchedFaqIds: rankedFaqs.map((item) => item.faq.id),
+      matchedClaimIds: rankedClaims.map((item) => item.claim.id),
+      topScore: bestMatch?.score ?? 0,
+      handoffLevel: handoff.level,
+    });
+  }
 
   const sourceList = rankedFaqs.map((item) => ({
     id: item.faq.id,

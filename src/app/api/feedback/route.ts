@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
+import { isRequestBlocked } from "@/lib/ipBlock";
 import { EventLog } from "@/models/EventLog";
 
 const feedbackSchema = z.object({
@@ -11,6 +12,11 @@ const feedbackSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // 차단 IP(회사 IP 등)는 통계 기록에서 제외
+  if (isRequestBlocked(request)) {
+    return NextResponse.json({ skipped: true, reason: "blocked_ip" }, { status: 200 });
+  }
+
   const payload = feedbackSchema.parse(await request.json());
 
   try {
